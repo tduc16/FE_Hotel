@@ -3,6 +3,7 @@
 import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { authService } from "@/services/auth.service";
+import ImageUploader from "@/components/admin/ImageUploader";
 
 export default function CreateRoomCategoryPage() {
   const router = useRouter();
@@ -11,9 +12,13 @@ export default function CreateRoomCategoryPage() {
   const [description, setDescription] = useState("");
   const [basePrice, setBasePrice] = useState("");
   const [capacity, setCapacity] = useState("");
-  const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [amenities, setAmenities] = useState("");
   const [isActive, setIsActive] = useState<boolean>(true);
+
+  // New Image states
+  const [images, setImages] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [thumbnailIndex, setThumbnailIndex] = useState(0);
   
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -51,37 +56,49 @@ export default function CreateRoomCategoryPage() {
       return;
     }
     
+    if (images.length === 0) {
+      setError("Vui lòng tải lên ít nhất một hình ảnh.");
+      return;
+    }
+    
     setSubmitting(true);
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
       const token = authService.getToken();
       
-      const payload: any = {
-        name: name.trim(),
-        base_price: Number(basePrice),
-        capacity: Number(capacity),
-        is_active: isActive
-      };
+      const formData = new FormData();
+      formData.append('name', name.trim());
+      formData.append('base_price', basePrice);
+      formData.append('capacity', capacity);
+      formData.append('is_active', isActive.toString());
 
       if (description.trim()) {
-        payload.description = description.trim();
-      }
-
-      if (thumbnailUrl.trim()) {
-        payload.thumbnail_url = thumbnailUrl.trim();
+        formData.append('description', description.trim());
       }
 
       if (amenities.trim()) {
-        payload.amenities = amenities.split(',').map(item => item.trim()).filter(Boolean);
+        const amenitiesList = amenities.split(',').map(item => item.trim()).filter(Boolean);
+        amenitiesList.forEach(item => formData.append('amenities', item));
       }
+
+      // Reorder images so the thumbnail is always the first one (index 0) if backend expects it
+      // Or just append thumbnailIndex. We'll do both to be safe.
+      const orderedImages = [...images];
+      if (thumbnailIndex > 0 && thumbnailIndex < orderedImages.length) {
+        const thumbnail = orderedImages.splice(thumbnailIndex, 1)[0];
+        orderedImages.unshift(thumbnail);
+      }
+      
+      orderedImages.forEach(file => {
+        formData.append('images', file);
+      });
 
       const res = await fetch(`${baseUrl}/admin/room-categories`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
-        body: JSON.stringify(payload)
+        body: formData
       });
       
       const responseData = await res.json();
@@ -212,19 +229,14 @@ export default function CreateRoomCategoryPage() {
               </div>
             </div>
 
-            <div>
-              <label htmlFor="thumbnailUrl" className="block text-xs uppercase tracking-[0.05em] font-label text-on-surface-variant mb-2 font-medium">
-                Ảnh đại diện (URL)
-              </label>
-              <input
-                id="thumbnailUrl"
-                type="text"
-                value={thumbnailUrl}
-                onChange={(e) => setThumbnailUrl(e.target.value)}
-                className="w-full bg-surface-container-highest text-on-surface rounded-lg px-4 py-3 placeholder:text-outline-variant focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/40 focus:outline-none transition-all"
-                placeholder="https://example.com/image.jpg"
-              />
-            </div>
+            <ImageUploader
+              images={images}
+              setImages={setImages}
+              previewUrls={previewUrls}
+              setPreviewUrls={setPreviewUrls}
+              thumbnailIndex={thumbnailIndex}
+              setThumbnailIndex={setThumbnailIndex}
+            />
 
             <div>
               <label htmlFor="amenities" className="block text-xs uppercase tracking-[0.05em] font-label text-on-surface-variant mb-2 font-medium">
@@ -258,7 +270,7 @@ export default function CreateRoomCategoryPage() {
             <div className="pt-4">
               <button
                 type="submit"
-                disabled={submitting || !!successMsg}
+                disabled={submitting || !!successMsg || images.length === 0}
                 className="w-full sm:w-auto bg-primary text-on-primary rounded-lg px-8 py-3 font-medium transition-colors hover:bg-primary-container disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
               >
                 {submitting ? (
