@@ -3,7 +3,7 @@
 import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { authService } from "@/services/auth.service";
-import ImageUploader from "@/components/admin/ImageUploader";
+import ImageUploader, { ImageItem } from "@/components/admin/ImageUploader";
 
 export default function CreateRoomCategoryPage() {
   const router = useRouter();
@@ -16,8 +16,7 @@ export default function CreateRoomCategoryPage() {
   const [isActive, setIsActive] = useState<boolean>(true);
 
   // New Image states
-  const [images, setImages] = useState<File[]>([]);
-  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [images, setImages] = useState<ImageItem[]>([]);
   const [thumbnailIndex, setThumbnailIndex] = useState(0);
   
   const [loading, setLoading] = useState(true);
@@ -89,8 +88,10 @@ export default function CreateRoomCategoryPage() {
         orderedImages.unshift(thumbnail);
       }
       
-      orderedImages.forEach(file => {
-        formData.append('images', file);
+      orderedImages.forEach(item => {
+        if (item.file) {
+          formData.append('images', item.file);
+        }
       });
 
       const res = await fetch(`${baseUrl}/admin/room-categories`, {
@@ -232,8 +233,6 @@ export default function CreateRoomCategoryPage() {
             <ImageUploader
               images={images}
               setImages={setImages}
-              previewUrls={previewUrls}
-              setPreviewUrls={setPreviewUrls}
               thumbnailIndex={thumbnailIndex}
               setThumbnailIndex={setThumbnailIndex}
             />

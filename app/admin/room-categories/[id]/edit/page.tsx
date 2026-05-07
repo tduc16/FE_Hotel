@@ -3,6 +3,7 @@
 import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { authService } from "@/services/auth.service";
+import ImageUploader, { ImageItem } from "@/components/admin/ImageUploader";
 
 export default function EditRoomCategoryPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -12,10 +13,13 @@ export default function EditRoomCategoryPage({ params }: { params: { id: string 
   const [description, setDescription] = useState("");
   const [basePrice, setBasePrice] = useState("");
   const [capacity, setCapacity] = useState("");
-  const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [amenities, setAmenities] = useState("");
   const [isActive, setIsActive] = useState<boolean>(true);
   
+  const [images, setImages] = useState<ImageItem[]>([]);
+  const [thumbnailIndex, setThumbnailIndex] = useState(0);
+  const [removedGalleryImages, setRemovedGalleryImages] = useState<string[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +41,6 @@ export default function EditRoomCategoryPage({ params }: { params: { id: string 
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
       const token = authService.getToken();
       
-      // Fetch all and find by ID since there's no single GET API
       const res = await fetch(`${baseUrl}/admin/room-categories`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -60,15 +63,48 @@ export default function EditRoomCategoryPage({ params }: { params: { id: string 
       setDescription(category.description || "");
       setBasePrice(category.base_price ? category.base_price.toString() : "");
       setCapacity(category.capacity ? category.capacity.toString() : "");
-      setThumbnailUrl(category.thumbnail_url || "");
       setAmenities(Array.isArray(category.amenities) ? category.amenities.join(", ") : "");
       setIsActive(category.is_active ?? true);
       
+      // Load existing images
+      const initialImages: ImageItem[] = [];
+      if (category.thumbnail_url) {
+        initialImages.push({
+          id: Math.random().toString(36).substring(7),
+          isExisting: true,
+          url: category.thumbnail_url
+        });
+      }
+      
+      if (category.gallery && Array.isArray(category.gallery)) {
+        category.gallery.forEach((url: string) => {
+          if (url !== category.thumbnail_url) {
+            initialImages.push({
+              id: Math.random().toString(36).substring(7),
+              isExisting: true,
+              url
+            });
+          }
+        });
+      }
+      
+      setImages(initialImages);
+      setThumbnailIndex(0);
+
       setLoading(false);
     } catch (err: any) {
       setError(err.message || "Đã xảy ra lỗi khi tải dữ liệu hạng phòng.");
       setLoading(false);
     }
+  };
+
+  const handleRemoveExisting = (url: string) => {
+    setRemovedGalleryImages((prev) => {
+      if (!prev.includes(url)) {
+        return [...prev, url];
+      }
+      return prev;
+    });
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -90,38 +126,66 @@ export default function EditRoomCategoryPage({ params }: { params: { id: string 
       setError("Vui lòng nhập sức chứa hợp lệ (lớn hơn 0).");
       return;
     }
+
+    if (images.length === 0) {
+      setError("Vui lòng giữ lại hoặc tải lên ít nhất một hình ảnh.");
+      return;
+    }
     
     setSubmitting(true);
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
       const token = authService.getToken();
       
-      const payload: any = {
-        name: name.trim(),
-        base_price: Number(basePrice),
-        capacity: Number(capacity),
-        is_active: isActive
-      };
+      const formData = new FormData();
+      formData.append('name', name.trim());
+      formData.append('base_price', basePrice);
+      formData.append('capacity', capacity);
+      formData.append('is_active', isActive.toString());
 
       if (description.trim()) {
-        payload.description = description.trim();
-      }
-
-      if (thumbnailUrl.trim()) {
-        payload.thumbnail_url = thumbnailUrl.trim();
+        formData.append('description', description.trim());
       }
 
       if (amenities.trim()) {
-        payload.amenities = amenities.split(',').map(item => item.trim()).filter(Boolean);
+        const amenitiesList = amenities.split(',').map(item => item.trim()).filter(Boolean);
+        amenitiesList.forEach(item => formData.append('amenities', item));
       }
 
+      // Reorder images so thumbnail is first
+      const orderedImages = [...images];
+      if (thumbnailIndex > 0 && thumbnailIndex < orderedImages.length) {
+        const thumbnail = orderedImages.splice(thumbnailIndex, 1)[0];
+        orderedImages.unshift(thumbnail);
+      }
+
+      let hasExistingGallery = false;
+
+      orderedImages.forEach(item => {
+        if (item.isExisting) {
+          formData.append('existing_gallery', item.url);
+          hasExistingGallery = true;
+        } else if (item.file) {
+          formData.append('images', item.file);
+        }
+      });
+      
+      // If no existing gallery remains but backend requires the array, NestJS might interpret it as omitted.
+      // NestJS might not reset gallery if we don't send existing_gallery. 
+      // But we send removed_gallery_images, which is explicit.
+      removedGalleryImages.forEach(url => {
+        formData.append('removed_gallery_images', url);
+      });
+
+      // Edge case: NestJS might ignore empty arrays in multipart. 
+      // To ensure all are removed if orderedImages has NO isExisting, we might need a dummy or the backend handles it via removed_gallery_images.
+      
       const res = await fetch(`${baseUrl}/admin/room-categories/${id}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: {
-          "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
-        body: JSON.stringify(payload)
+        body: formData
       });
       
       const responseData = await res.json();
@@ -238,17 +302,13 @@ export default function EditRoomCategoryPage({ params }: { params: { id: string 
               </div>
             </div>
 
-            <div>
-              <label htmlFor="thumbnailUrl" className="block text-xs uppercase tracking-[0.05em] font-label text-on-surface-variant mb-2 font-medium">Ảnh đại diện (URL)</label>
-              <input
-                id="thumbnailUrl"
-                type="text"
-                value={thumbnailUrl}
-                onChange={(e) => setThumbnailUrl(e.target.value)}
-                className="w-full bg-surface-container-highest text-on-surface rounded-lg px-4 py-3 placeholder:text-outline-variant focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/40 focus:outline-none transition-all"
-                placeholder="https://example.com/image.jpg"
-              />
-            </div>
+            <ImageUploader
+              images={images}
+              setImages={setImages}
+              thumbnailIndex={thumbnailIndex}
+              setThumbnailIndex={setThumbnailIndex}
+              onRemoveExisting={handleRemoveExisting}
+            />
 
             <div>
               <label htmlFor="amenities" className="block text-xs uppercase tracking-[0.05em] font-label text-on-surface-variant mb-2 font-medium">Tiện ích (Các mục tiện ích cách nhau bởi dấu phẩy)</label>

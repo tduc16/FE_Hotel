@@ -1,21 +1,26 @@
 import React, { useRef, useState, DragEvent } from "react";
 
+export interface ImageItem {
+  id: string;
+  isExisting: boolean;
+  url: string;
+  file?: File;
+}
+
 interface ImageUploaderProps {
-  images: File[];
-  setImages: React.Dispatch<React.SetStateAction<File[]>>;
-  previewUrls: string[];
-  setPreviewUrls: React.Dispatch<React.SetStateAction<string[]>>;
+  images: ImageItem[];
+  setImages: React.Dispatch<React.SetStateAction<ImageItem[]>>;
   thumbnailIndex: number;
   setThumbnailIndex: React.Dispatch<React.SetStateAction<number>>;
+  onRemoveExisting?: (url: string) => void;
 }
 
 export default function ImageUploader({
   images,
   setImages,
-  previewUrls,
-  setPreviewUrls,
   thumbnailIndex,
   setThumbnailIndex,
+  onRemoveExisting,
 }: ImageUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -23,23 +28,32 @@ export default function ImageUploader({
   // For drag and drop reordering
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
+  const getFullUrl = (url: string) => {
+    if (url.startsWith('blob:')) return url;
+    if (url.startsWith('http')) return url;
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    return `${baseUrl}${url}`;
+  };
+
   const handleFileChange = (files: FileList | null) => {
     if (!files) return;
 
-    const newFiles: File[] = [];
-    const newUrls: string[] = [];
+    const newItems: ImageItem[] = [];
 
     Array.from(files).forEach((file) => {
       if (file.size > 5 * 1024 * 1024) {
         alert(`File ${file.name} vượt quá dung lượng 5MB`);
         return;
       }
-      newFiles.push(file);
-      newUrls.push(URL.createObjectURL(file));
+      newItems.push({
+        id: Math.random().toString(36).substring(7) + Date.now().toString(),
+        isExisting: false,
+        url: URL.createObjectURL(file),
+        file,
+      });
     });
 
-    setImages((prev) => [...prev, ...newFiles]);
-    setPreviewUrls((prev) => [...prev, ...newUrls]);
+    setImages((prev) => [...prev, ...newItems]);
     
     // Reset file input
     if (fileInputRef.current) {
@@ -48,12 +62,15 @@ export default function ImageUploader({
   };
 
   const handleRemove = (indexToRemove: number) => {
+    const itemToRemove = images[indexToRemove];
+    
+    if (itemToRemove.isExisting && onRemoveExisting) {
+      onRemoveExisting(itemToRemove.url);
+    } else if (!itemToRemove.isExisting) {
+      URL.revokeObjectURL(itemToRemove.url); // Cleanup blob
+    }
+
     setImages((prev) => prev.filter((_, i) => i !== indexToRemove));
-    setPreviewUrls((prev) => {
-      const newUrls = [...prev];
-      URL.revokeObjectURL(newUrls[indexToRemove]); // Cleanup
-      return newUrls.filter((_, i) => i !== indexToRemove);
-    });
 
     if (thumbnailIndex === indexToRemove) {
       setThumbnailIndex(0);
@@ -94,19 +111,12 @@ export default function ImageUploader({
 
     // Reorder logic on hover for immediate feedback
     const newImages = [...images];
-    const newUrls = [...previewUrls];
-
     const draggedImage = newImages[draggedIndex];
-    const draggedUrl = newUrls[draggedIndex];
 
     newImages.splice(draggedIndex, 1);
-    newUrls.splice(draggedIndex, 1);
-
     newImages.splice(index, 0, draggedImage);
-    newUrls.splice(index, 0, draggedUrl);
 
     setImages(newImages);
-    setPreviewUrls(newUrls);
 
     // Update thumbnail index to match the new position
     if (thumbnailIndex === draggedIndex) {
@@ -180,11 +190,11 @@ export default function ImageUploader({
       </div>
 
       {/* Preview Grid */}
-      {previewUrls.length > 0 && (
+      {images.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
-          {previewUrls.map((url, index) => (
+          {images.map((item, index) => (
             <div
-              key={url}
+              key={item.id}
               draggable
               onDragStart={(e) => onReorderDragStart(e, index)}
               onDragOver={(e) => onReorderDragOver(e, index)}
@@ -201,10 +211,13 @@ export default function ImageUploader({
             >
               {/* Image */}
               <img
-                src={url}
+                src={getFullUrl(item.url)}
                 alt={`Preview ${index}`}
                 className="w-full h-full object-cover"
                 onClick={() => setThumbnailIndex(index)}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/images/room-placeholder.jpg';
+                }}
               />
 
               {/* Thumbnail Badge */}
