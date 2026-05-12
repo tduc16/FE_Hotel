@@ -9,4 +9,5 @@ export interface RoomCategory {
   gallery?: string[];
   available_rooms: number;
   is_available: boolean;
+  is_active: boolean;
 }

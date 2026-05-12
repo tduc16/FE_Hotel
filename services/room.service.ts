@@ -1,6 +1,6 @@
 import { RoomCategory } from '@/types/room';
 
-const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 export const roomService = {
   async getCategories(): Promise<RoomCategory[]> {

@@ -25,9 +25,9 @@ export default function RoomCategoriesAdminPage() {
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       const token = authService.getToken();
-      const res = await fetch(`${baseUrl}/admin/room-categories`, {
+      const res = await fetch(`${apiUrl}/admin/room-categories`, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -52,9 +52,9 @@ export default function RoomCategoriesAdminPage() {
     }
 
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       const token = authService.getToken();
-      const res = await fetch(`${baseUrl}/admin/room-categories/${id}/toggle-status`, {
+      const res = await fetch(`${apiUrl}/admin/room-categories/${id}/toggle-status`, {
         method: "PATCH",
         headers: {
           "Authorization": `Bearer ${token}`
@@ -118,7 +118,11 @@ export default function RoomCategoriesAdminPage() {
                     <td className="px-6 py-4">
                       <div className="flex items-center">
                         {category.thumbnail_url && (
-                          <img src={category.thumbnail_url} alt={category.name} className="w-12 h-12 object-cover rounded-md mr-4" />
+                          <img
+                            src={`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'}${category.thumbnail_url.startsWith('http') ? new URL(category.thumbnail_url).pathname : category.thumbnail_url}`}
+                            alt={category.name}
+                            className="w-12 h-12 object-cover rounded-md mr-4"
+                          />
                         )}
                         <div className="font-medium text-on-surface">{category.name}</div>
                       </div>
