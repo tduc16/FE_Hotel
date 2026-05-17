@@ -41,8 +41,10 @@ async function RoomList() {
 
   try {
     categories = await roomService.getCategories();
+    console.log(`[RoomList] Số lượng rooms chuẩn bị render ra UI: ${categories.length}`);
+    categories.forEach(c => console.log(`[RoomList Render] Room: id=${c.id}, name=${c.name}, thumbnail=${c.thumbnail_url}`));
   } catch (err) {
-    console.error("Failed to fetch categories:", err);
+    console.error("[RoomList] Failed to fetch categories:", err);
     error = "Không thể tải danh sách phòng. Vui lòng thử lại sau.";
   }
 

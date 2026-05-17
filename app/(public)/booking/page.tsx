@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { roomService } from "@/services/room.service";
+import { RoomCategory } from "@/types/room";
 
 // Types
 interface BookingData {
@@ -21,19 +23,37 @@ interface ValidationErrors {
   [key: string]: string;
 }
 
-const PRICE_PER_NIGHT = 850000;
+// BACKEND_URL để build URL ảnh
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/api$/, '');
 
-export default function BookingPage() {
+function buildImageUrl(thumbnailUrl: any): string | null {
+  if (typeof thumbnailUrl !== 'string' || !thumbnailUrl || thumbnailUrl.trim() === '') return null;
+  if (thumbnailUrl.startsWith('http://') || thumbnailUrl.startsWith('https://')) return thumbnailUrl;
+  const path = thumbnailUrl.startsWith('/') ? thumbnailUrl : `/${thumbnailUrl}`;
+  return `${BACKEND_URL}${path}`;
+}
+
+function BookingContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const roomId = searchParams.get('roomId');
 
-  // State
+  // State for room data
+  const [roomData, setRoomData] = useState<RoomCategory | null>(null);
+  const [isLoadingRoom, setIsLoadingRoom] = useState(true);
+  const [roomError, setRoomError] = useState<string | null>(null);
+  const [imgError, setImgError] = useState(false);
+
+  // Form State
   const [formData, setFormData] = useState<BookingData>({
     fullName: "",
     phone: "",
     email: "",
     checkIn: "",
     checkOut: "",
-    guests: "2 Người lớn",
+    guests: "1",
     notes: "",
     paymentMethod: "",
     agreeTerms: false,
@@ -44,18 +64,108 @@ export default function BookingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  // Calculate nights
+  // Fetch room data
   useEffect(() => {
-    if (formData.checkIn && formData.checkOut) {
-      const start = new Date(formData.checkIn);
-      const end = new Date(formData.checkOut);
-      const diffTime = Math.max(0, end.getTime() - start.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      setNights(diffDays);
-    } else {
-      setNights(0);
+    async function loadRoom() {
+      if (!roomId) {
+        setRoomError("Không tìm thấy thông tin phòng. Vui lòng quay lại danh sách phòng và chọn lại.");
+        setIsLoadingRoom(false);
+        return;
+      }
+
+      console.log("BOOKING ROOM ID:", roomId);
+
+      try {
+        const data = await roomService.getCategoryById(roomId);
+        console.log("ROOM DETAIL:", data);
+        setRoomData(data);
+      } catch (error: any) {
+        console.error("Failed to load room:", error);
+        setRoomError("Không thể tải thông tin phòng hoặc phòng không tồn tại.");
+      } finally {
+        setIsLoadingRoom(false);
+      }
     }
-  }, [formData.checkIn, formData.checkOut]);
+
+    loadRoom();
+  }, [roomId]);
+
+  // Calculate nights & validate dates
+  useEffect(() => {
+    let calculatedNights = 0;
+    
+    if (formData.checkIn && formData.checkOut) {
+      // Phân tích cú pháp chuỗi ngày địa phương để tránh lỗi Timezone
+      const [inYear, inMonth, inDay] = formData.checkIn.split('-').map(Number);
+      const [outYear, outMonth, outDay] = formData.checkOut.split('-').map(Number);
+      
+      const checkInDate = new Date(inYear, inMonth - 1, inDay);
+      const checkOutDate = new Date(outYear, outMonth - 1, outDay);
+      
+      if (checkOutDate <= checkInDate) {
+        setErrors(prev => ({ ...prev, checkOut: "Ngày trả phòng phải sau ngày nhận phòng" }));
+        calculatedNights = 0;
+      } else {
+        setErrors(prev => ({ ...prev, checkOut: "" }));
+        const diffTime = checkOutDate.getTime() - checkInDate.getTime();
+        calculatedNights = Math.round(diffTime / (1000 * 60 * 60 * 24));
+      }
+    } else {
+      calculatedNights = 0;
+    }
+
+    setNights(calculatedNights);
+
+    const basePrice = roomData?.base_price || 0;
+    const totalPrice = calculatedNights * basePrice;
+
+    console.log({
+      checkinDate: formData.checkIn,
+      checkoutDate: formData.checkOut,
+      nights: calculatedNights,
+      basePrice,
+      totalPrice
+    });
+  }, [formData.checkIn, formData.checkOut, roomData?.base_price]);
+
+  // Realtime validation & auto-reset for guests
+  useEffect(() => {
+    if (roomData && roomData.capacity) {
+      const currentGuests = parseInt(formData.guests);
+      if (isNaN(currentGuests) || currentGuests > roomData.capacity) {
+        setFormData(prev => ({ ...prev, guests: roomData.capacity.toString() }));
+      }
+    }
+  }, [roomData, formData.guests]);
+
+  // Debug log
+  console.log({
+    roomCapacity: roomData?.capacity,
+    guestCount: formData.guests
+  });
+
+  // Helper để lấy ngày hôm nay theo YYYY-MM-DD local
+  const getTodayStr = () => {
+    const today = new Date();
+    const offset = today.getTimezoneOffset();
+    const localDate = new Date(today.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split('T')[0];
+  };
+
+  const getMinCheckOut = () => {
+    if (formData.checkIn) {
+      const [y, m, d] = formData.checkIn.split('-').map(Number);
+      const nextDay = new Date(y, m - 1, d + 1);
+      const offset = nextDay.getTimezoneOffset();
+      const localNextDay = new Date(nextDay.getTime() - (offset * 60 * 1000));
+      return localNextDay.toISOString().split('T')[0];
+    }
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const offset = tomorrow.getTimezoneOffset();
+    const localTomorrow = new Date(tomorrow.getTime() - (offset * 60 * 1000));
+    return localTomorrow.toISOString().split('T')[0];
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -66,7 +176,6 @@ export default function BookingPage() {
       [name]: type === 'checkbox' ? checked : value
     }));
 
-    // Clear error when user types
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: "" }));
     }
@@ -88,8 +197,14 @@ export default function BookingPage() {
     }
     if (!formData.checkOut) {
       newErrors.checkOut = "Vui lòng chọn ngày trả phòng";
-    } else if (formData.checkIn && new Date(formData.checkOut) <= new Date(formData.checkIn)) {
-      newErrors.checkOut = "Ngày trả phòng phải sau ngày nhận phòng";
+    } else if (formData.checkIn) {
+      const [inYear, inMonth, inDay] = formData.checkIn.split('-').map(Number);
+      const [outYear, outMonth, outDay] = formData.checkOut.split('-').map(Number);
+      const checkInDate = new Date(inYear, inMonth - 1, inDay);
+      const checkOutDate = new Date(outYear, outMonth - 1, outDay);
+      if (checkOutDate <= checkInDate) {
+        newErrors.checkOut = "Ngày trả phòng phải sau ngày nhận phòng";
+      }
     }
 
     if (!formData.paymentMethod) {
@@ -107,15 +222,11 @@ export default function BookingPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validate()) {
-      // Scroll to top or show error validation globally
-      return;
-    }
+    if (!validate() || !roomData) return;
 
     setIsSubmitting(true);
 
-    // Mock API call
-    console.log("Submitting booking data:", { ...formData, totalAmount: nights * PRICE_PER_NIGHT });
+    console.log("Submitting booking data:", { ...formData, roomId, totalAmount: nights * roomData.base_price });
 
     await new Promise(resolve => setTimeout(resolve, 1500));
 
@@ -147,6 +258,32 @@ export default function BookingPage() {
     );
   }
 
+  if (isLoadingRoom) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-24 text-center">
+        <span className="material-symbols-outlined animate-spin text-4xl text-primary">progress_activity</span>
+        <p className="mt-4 text-on-surface-variant">Đang tải thông tin phòng...</p>
+      </div>
+    );
+  }
+
+  if (roomError || !roomData) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-24 text-center">
+        <div className="bg-error-container/20 p-8 rounded-2xl max-w-xl mx-auto border border-error/20">
+          <span className="material-symbols-outlined text-error text-5xl mb-4">error</span>
+          <h2 className="text-xl font-bold text-on-surface mb-2">Không thể đặt phòng</h2>
+          <p className="text-on-surface-variant mb-6">{roomError}</p>
+          <Link href="/rooms" className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:brightness-110 transition-all inline-block">
+            Xem danh sách phòng
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const imageUrl = imgError ? null : buildImageUrl(roomData.thumbnail_url);
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-12">
       {/* Breadcrumb */}
@@ -154,6 +291,10 @@ export default function BookingPage() {
         <Link href="/" className="hover:text-primary transition-colors flex items-center gap-1">
           <span className="material-symbols-outlined text-lg">home</span>
           Trang chủ
+        </Link>
+        <span className="material-symbols-outlined text-sm opacity-50">chevron_right</span>
+        <Link href="/rooms" className="hover:text-primary transition-colors">
+          Phòng
         </Link>
         <span className="material-symbols-outlined text-sm opacity-50">chevron_right</span>
         <span className="text-primary font-bold">Đặt phòng</span>
@@ -165,10 +306,8 @@ export default function BookingPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-
         {/* Left Column: Form Info */}
         <div className="lg:col-span-2 space-y-8">
-
           {/* Personal Info Card */}
           <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/10 p-8">
             <div className="flex items-center gap-3 mb-6 pb-4 border-b border-surface-container-high">
@@ -233,6 +372,7 @@ export default function BookingPage() {
                   <input
                     type="date"
                     name="checkIn"
+                    min={getTodayStr()}
                     value={formData.checkIn}
                     onChange={handleChange}
                     className={`w-full bg-surface-container-highest border-none rounded-lg py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none transition-shadow ${errors.checkIn ? 'ring-2 ring-error/50 bg-error-container/20' : ''}`}
@@ -248,6 +388,7 @@ export default function BookingPage() {
                   <input
                     type="date"
                     name="checkOut"
+                    min={getMinCheckOut()}
                     value={formData.checkOut}
                     onChange={handleChange}
                     className={`w-full bg-surface-container-highest border-none rounded-lg py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none transition-shadow ${errors.checkOut ? 'ring-2 ring-error/50 bg-error-container/20' : ''}`}
@@ -257,19 +398,26 @@ export default function BookingPage() {
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <label className="block text-xs font-extrabold uppercase tracking-widest text-on-surface-variant">Số lượng khách *</label>
+                <label className="block text-xs font-extrabold uppercase tracking-widest text-on-surface-variant">
+                  Số lượng khách * {roomData ? `(Tối đa ${roomData.capacity} khách)` : ''}
+                </label>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-primary">group</span>
                   <select
                     name="guests"
                     value={formData.guests}
                     onChange={handleChange}
-                    className="w-full bg-surface-container-highest border-none rounded-lg py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none appearance-none"
+                    disabled={!roomData}
+                    className="w-full bg-surface-container-highest border-none rounded-lg py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <option value="1 Người lớn">1 Người lớn</option>
-                    <option value="2 Người lớn">2 Người lớn</option>
-                    <option value="2 Người lớn, 1 Trẻ em">2 Người lớn, 1 Trẻ em</option>
-                    <option value="3 Người lớn">3 Người lớn</option>
+                    {!roomData && (
+                      <option value={formData.guests}>{formData.guests} Khách</option>
+                    )}
+                    {roomData && Array.from({ length: roomData.capacity }, (_, i) => i + 1).map(num => (
+                      <option key={num} value={num.toString()}>
+                        {num} Khách
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -354,21 +502,48 @@ export default function BookingPage() {
 
             <div className="p-6 space-y-6">
               <div className="flex gap-4">
-                <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBCgw_wx3Od5qx3EkdenXGiDZ0zDBHeRi0FseJsUTrkFA-DZ2C2Miw5puLw3fcSB2W1ouErnRqSovR1I2u7tKA8ONbC9HprTw0Ii83jUxsR73vKYHqLlGanezsIeH9n0Ze7xxTEFL9RUwP0h0XRS2E1ncbSxTLRfX6Mwo5Bgaj6Yaf5Jqk0cX2MHjONUhv4A249DMNIhdSHYAP7L8Z1wo9udcdAhjWJnF3xiUt-0OGXCaC5mZS9XxiqvcDrc-laJP6zdsIj0iloCpiT" alt="Room" className="w-20 h-20 object-cover rounded-lg" />
-                <div>
-                  <h4 className="font-bold text-on-surface leading-tight mb-2">Phòng Deluxe Giường Đôi Hướng Phố</h4>
-                  <div className="flex items-center text-xs text-on-surface-variant gap-1">
-                    <span className="material-symbols-outlined text-[16px] text-tertiary" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                    <span className="font-bold text-on-surface">4.9/5</span>
-                    <span>(Bao gồm bữa sáng)</span>
+                {imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={imageUrl}
+                    alt={roomData.name}
+                    className="w-20 h-20 object-cover rounded-lg"
+                    onError={() => setImgError(true)}
+                  />
+                ) : (
+                  <div className="w-20 h-20 bg-surface-container-high rounded-lg flex flex-col items-center justify-center text-on-surface-variant/50">
+                    <span className="material-symbols-outlined">hotel</span>
+                  </div>
+                )}
+                
+                <div className="flex-1">
+                  <h4 className="font-bold text-on-surface leading-tight mb-2 line-clamp-2">{roomData.name}</h4>
+                  
+                  <div className="flex flex-col gap-1 text-xs text-on-surface-variant">
+                    <div className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">group</span>
+                      <span>Tối đa {roomData.capacity} khách</span>
+                    </div>
+                    {Array.isArray(roomData.amenities) && roomData.amenities.length > 0 && (
+                       <div className="flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                        <span className="truncate w-[120px]">{roomData.amenities.join(', ')}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
+              {roomData.description && (
+                <div className="text-sm text-on-surface-variant line-clamp-2 italic">
+                  &quot;{roomData.description}&quot;
+                </div>
+              )}
+
               <div className="border-t border-b border-surface-container-highest py-4 space-y-4">
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-on-surface-variant font-medium">Giá mỗi đêm</span>
-                  <span className="font-bold text-on-surface">{formatCurrency(PRICE_PER_NIGHT)}</span>
+                  <span className="font-bold text-on-surface">{formatCurrency(roomData.base_price)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-on-surface-variant font-medium">Số đêm lưu trú</span>
@@ -384,7 +559,7 @@ export default function BookingPage() {
                 <div className="space-y-1">
                   <span className="text-sm font-bold uppercase tracking-widest text-on-surface-variant">Tổng cộng</span>
                 </div>
-                <span className="text-3xl font-extrabold text-primary">{formatCurrency(nights * PRICE_PER_NIGHT)}</span>
+                <span className="text-3xl font-extrabold text-primary">{formatCurrency(nights * roomData.base_price)}</span>
               </div>
 
               <div className="pt-2">
@@ -405,7 +580,7 @@ export default function BookingPage() {
 
               <button
                 type="submit"
-                disabled={isSubmitting || nights === 0}
+                disabled={isSubmitting || nights === 0 || !!errors.checkOut || !!errors.checkIn}
                 className="w-full bg-primary-container text-on-primary-container h-14 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary-container disabled:hover:text-on-primary-container disabled:active:scale-100"
               >
                 {isSubmitting ? (
@@ -425,5 +600,18 @@ export default function BookingPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function BookingPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-5xl mx-auto px-4 py-24 text-center">
+        <span className="material-symbols-outlined animate-spin text-4xl text-primary">progress_activity</span>
+        <p className="mt-4 text-on-surface-variant">Đang tải...</p>
+      </div>
+    }>
+      <BookingContent />
+    </Suspense>
   );
 }

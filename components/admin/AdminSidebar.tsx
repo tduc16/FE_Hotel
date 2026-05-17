@@ -11,6 +11,7 @@ export default function AdminSidebar() {
     { name: "Phòng", href: "/admin/rooms", icon: "bed" },
     { name: "Loại phòng", href: "/admin/room-categories", icon: "category" },
     { name: "Đặt phòng", href: "/admin/bookings", icon: "book_online" },
+    { name: "Lịch phòng", href: "/admin/bookings/calendar", icon: "calendar_month" },
     { name: "Tiện nghi", href: "/admin/amenities", icon: "tv" },
     { name: "Đánh giá", href: "/admin/reviews", icon: "star" },
     { name: "Liên hệ", href: "/admin/contacts", icon: "mail" },
@@ -20,7 +21,11 @@ export default function AdminSidebar() {
     <aside className="w-64 bg-surface-container-lowest border-r border-surface-container-highest flex-shrink-0 min-h-[calc(100vh-64px)] overflow-y-auto hidden md:block">
       <div className="py-6 px-4 space-y-1">
         {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          // Exact match, or startsWith but only for non-exact parent paths
+          const isActive =
+            pathname === item.href ||
+            (item.href !== '/admin/bookings' && pathname.startsWith(`${item.href}/`)) ||
+            (item.href === '/admin/bookings' && pathname === '/admin/bookings');
           return (
             <Link
               key={item.name}
