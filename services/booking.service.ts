@@ -126,8 +126,11 @@ export const bookingService = {
   },
 
   async updateBookingStatus(id: string, status: BookingStatus): Promise<Booking> {
-    const url = `${baseUrl}/admin/bookings/${id}/status`;
-    console.log('[bookingService] PATCH', url, { status });
+    const url = `${baseUrl}/admin/bookings/${id}`;
+    
+    // 5. Log toàn bộ request URL và request body để xác định backend nhận gì
+    console.log('Request URL:', url);
+    console.log('Request Body:', JSON.stringify({ status }));
 
     const token = getToken();
     const headers = {
@@ -135,29 +138,85 @@ export const bookingService = {
       Authorization: `Bearer ${token}`,
     };
 
-    console.log('[bookingService] PATCH Full Request URL:', url);
-    console.log('[bookingService] Current Token:', token ? `${token.substring(0, 20)}...` : 'NULL/UNDEFINED');
-    console.log('[bookingService] Request Headers:', headers);
-
-    const res = await fetch(url, {
+    const response = await fetch(url, {
       method: 'PATCH',
       cache: 'no-store',
       headers,
       body: JSON.stringify({ status }),
     });
 
-    if (res.status === 401) {
+    // 2. Khi gọi API log:
+    console.log(response.status);
+    console.log(await response.clone().json());
+
+    if (response.status === 401) {
       console.error('[bookingService] HTTP 401 Unauthorized - Token may be expired or invalid');
       throw new Error('UNAUTHORIZED');
     }
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err?.message ?? `Failed to update status: HTTP ${res.status}`);
+    if (!response.ok) {
+      let err: any = {};
+      try {
+        err = await response.json();
+      } catch (e) {
+        // ignore
+      }
+      let errMsg = err?.message || `Cập nhật trạng thái thất bại: HTTP ${response.status}`;
+      // 4. Không hiển thị "Internal server error" chung chung
+      if (errMsg.toLowerCase() === 'internal server error') {
+        errMsg = `Lỗi hệ thống từ máy chủ (HTTP ${response.status}). Vui lòng kiểm tra lại cấu hình hoặc dữ liệu.`;
+      }
+      throw new Error(errMsg);
     }
 
-    const data = await res.json();
+    const data = await response.json();
     return (data?.data ?? data) as Booking;
+  },
+
+  async createBooking(data: any): Promise<any> {
+    const url = `${baseUrl.replace(/\/admin$/, '')}/bookings`;
+    console.log('[bookingService] POST Full Request URL:', url);
+    console.log('[bookingService] Request Body payload:', JSON.stringify(data, null, 2));
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    console.log('[bookingService] Response status:', res.status);
+
+    let resData;
+    try {
+      resData = await res.json();
+      console.log('[bookingService] Response body:', resData);
+    } catch (e) {
+      console.error('[bookingService] Failed to parse JSON response (silent error):', e);
+      throw new Error(`Lỗi máy chủ: Không thể đọc phản hồi (HTTP ${res.status})`);
+    }
+
+    if (res.ok !== true) {
+      if (res.status >= 500) {
+        throw new Error(`Lỗi máy chủ: HTTP ${res.status}`);
+      }
+
+      let errorMessage = resData?.message || `Lỗi đặt phòng: HTTP ${res.status}`;
+      if (resData?.errors && Array.isArray(resData.errors)) {
+         errorMessage = resData.errors.join(', ');
+      } else if (resData?.details?.conflictingBookings) {
+         errorMessage = "Phòng đã được đặt trong khoảng thời gian này.";
+      }
+
+      return {
+        error: true,
+        message: errorMessage,
+        details: resData
+      };
+    }
+
+    return resData;
   },
 };
 

@@ -18,11 +18,13 @@ interface Room {
 const DAY_WIDTH = 44; // px per day column
 
 const STATUS_STYLE: Record<BookingStatus, { bg: string; border: string; text: string; label: string }> = {
-  pending:     { bg: 'bg-amber-400',   border: 'border-amber-500',   text: 'text-white', label: 'Chờ xác nhận' },
-  confirmed:   { bg: 'bg-blue-500',    border: 'border-blue-600',    text: 'text-white', label: 'Đã xác nhận' },
-  checked_in:  { bg: 'bg-emerald-500', border: 'border-emerald-600', text: 'text-white', label: 'Đang ở' },
-  checked_out: { bg: 'bg-slate-400',   border: 'border-slate-500',   text: 'text-white', label: 'Đã trả phòng' },
-  cancelled:   { bg: 'bg-red-400',     border: 'border-red-500',     text: 'text-white', label: 'Đã hủy' },
+  PENDING:     { bg: 'bg-amber-400',   border: 'border-amber-500',   text: 'text-white', label: 'Chờ xác nhận' },
+  CONFIRMED:   { bg: 'bg-blue-500',    border: 'border-blue-600',    text: 'text-white', label: 'Đã xác nhận' },
+  CHECKED_IN:  { bg: 'bg-emerald-500', border: 'border-emerald-600', text: 'text-white', label: 'Đang ở' },
+  CHECKED_OUT: { bg: 'bg-slate-400',   border: 'border-slate-500',   text: 'text-white', label: 'Đã trả phòng' },
+  COMPLETED:   { bg: 'bg-emerald-600', border: 'border-emerald-700', text: 'text-white', label: 'Đã hoàn thành' },
+  CANCELLED:   { bg: 'bg-red-400',     border: 'border-red-500',     text: 'text-white', label: 'Đã hủy' },
+  EXPIRED:     { bg: 'bg-slate-400',   border: 'border-slate-500',   text: 'text-white', label: 'Đã hết hạn' },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -82,7 +84,8 @@ interface BlockProps {
 }
 
 function BookingBlock({ booking, left, width, onClick }: BlockProps) {
-  const s = STATUS_STYLE[booking.status] ?? STATUS_STYLE.pending;
+  const actualStatus = booking.status ?? booking.bookingStatus ?? booking.booking_status ?? 'PENDING';
+  const s = STATUS_STYLE[actualStatus] ?? STATUS_STYLE.PENDING;
   const minWidth = 20;
 
   return (
@@ -92,12 +95,12 @@ function BookingBlock({ booking, left, width, onClick }: BlockProps) {
         hover:brightness-110 hover:shadow-lg hover:z-10 transition-all duration-150`}
       style={{ left: left + 2, width: Math.max(minWidth, width - 4) }}
       onClick={(e) => { e.stopPropagation(); onClick(booking); }}
-      title={`${booking.room?.name} · ${booking.customer?.name} · ${booking.booking_code}`}
+      title={`${booking.room?.name || '—'} · ${booking.customerName || booking.guestName || booking.customer?.name || '—'} · ${booking.bookingCode || booking.booking_code || '—'}`}
     >
       {width > 52 && (
         <div className="px-2 h-full flex items-center overflow-hidden">
           <span className="text-[11px] font-semibold truncate leading-tight">
-            {booking.customer?.name ?? booking.booking_code}
+            {booking.customerName || booking.guestName || booking.customer?.name || booking.bookingCode || booking.booking_code || '—'}
           </span>
         </div>
       )}
@@ -202,8 +205,8 @@ export default function BookingCalendar() {
 
   /** Tính left + width của booking block trong month */
   function blockGeometry(booking: Booking) {
-    const ciDate = toDate(booking.check_in);
-    const coDate = toDate(booking.check_out);
+    const ciDate = toDate(booking.checkInDate || booking.check_in_date || booking.check_in || '');
+    const coDate = toDate(booking.checkOutDate || booking.check_out_date || booking.check_out || '');
 
     // Clamp to month bounds
     const effectiveStart = ciDate < monthStart ? monthStart : ciDate;
@@ -217,24 +220,28 @@ export default function BookingCalendar() {
   /** Kiểm tra phòng có booking active trong tháng không */
   function isRoomOccupied(roomId: string): boolean {
     return (bookingsByRoom.get(roomId) ?? []).some(
-      (b) =>
-        b.status !== 'cancelled' &&
-        b.status !== 'checked_out' &&
-        toDate(b.check_out) > today &&
-        toDate(b.check_in) <= today
+      (b) => {
+        const bStatus = b.status ?? b.bookingStatus ?? b.booking_status;
+        return (
+          bStatus !== 'CANCELLED' &&
+          bStatus !== 'CHECKED_OUT' &&
+          toDate(b.checkOutDate || b.check_out_date || b.check_out || '') > today &&
+          toDate(b.checkInDate || b.check_in_date || b.check_in || '') <= today
+        );
+      }
     );
   }
 
   /** Kiểm tra phòng full (toàn tháng bị occupied) */
   function isRoomFull(roomId: string): boolean {
     const bs = (bookingsByRoom.get(roomId) ?? []).filter(
-      (b) => b.status !== 'cancelled'
+      (b) => (b.status ?? b.bookingStatus ?? b.booking_status) !== 'CANCELLED'
     );
     if (bs.length === 0) return false;
     let covered = 0;
     bs.forEach((b) => {
-      const start = Math.max(0, daysBetween(monthStart, toDate(b.check_in)));
-      const end = Math.min(days.length, daysBetween(monthStart, toDate(b.check_out)));
+      const start = Math.max(0, daysBetween(monthStart, toDate(b.checkInDate || b.check_in_date || b.check_in || '')));
+      const end = Math.min(days.length, daysBetween(monthStart, toDate(b.checkOutDate || b.check_out_date || b.check_out || '')));
       covered += Math.max(0, end - start);
     });
     return covered >= days.length * 0.85;
@@ -518,7 +525,7 @@ export default function BookingCalendar() {
         {!loading && !error && rooms.length > 0 && (
           <div className="border-t border-slate-200 bg-slate-50 px-5 py-3 flex flex-wrap gap-4 text-xs">
             {(Object.keys(STATUS_STYLE) as BookingStatus[]).map((s) => {
-              const count = bookings.filter((b) => b.status === s).length;
+              const count = bookings.filter((b) => (b.status ?? b.bookingStatus ?? b.booking_status) === s).length;
               if (count === 0) return null;
               const style = STATUS_STYLE[s];
               return (

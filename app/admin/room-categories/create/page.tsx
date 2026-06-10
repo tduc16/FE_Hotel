@@ -7,7 +7,7 @@ import ImageUploader, { ImageItem } from "@/components/admin/ImageUploader";
 
 export default function CreateRoomCategoryPage() {
   const router = useRouter();
-  
+
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [basePrice, setBasePrice] = useState("");
@@ -20,7 +20,7 @@ export default function CreateRoomCategoryPage() {
   const [newImages, setNewImages] = useState<ImageItem[]>([]);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
   const [thumbnailId, setThumbnailId] = useState<string>("");
-  
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -34,7 +34,7 @@ export default function CreateRoomCategoryPage() {
       router.push("/admin/login");
       return;
     }
-    
+
     setLoading(false);
   }, [router]);
 
@@ -42,13 +42,13 @@ export default function CreateRoomCategoryPage() {
     e.preventDefault();
     setError(null);
     setSuccessMsg(null);
-    
+
     if (!name.trim()) {
       setError("Vui lòng nhập tên hạng phòng.");
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    
+
     if (!basePrice || isNaN(Number(basePrice)) || Number(basePrice) <= 0) {
       setError("Vui lòng nhập giá cơ bản hợp lệ (lớn hơn 0).");
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -60,7 +60,7 @@ export default function CreateRoomCategoryPage() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    
+
     if (newImages.length === 0) {
       setError("Vui lòng tải lên ít nhất một hình ảnh.");
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -72,13 +72,13 @@ export default function CreateRoomCategoryPage() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    
+
     setSubmitting(true);
     setUploadProgress(10);
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
       const token = authService.getToken();
-      
+
       const payload: any = {
         name: name.trim(),
         base_price: Number(basePrice),
@@ -99,16 +99,16 @@ export default function CreateRoomCategoryPage() {
       const uploadFiles = async (files: File[]) => {
         const uploadData = new FormData();
         files.forEach(f => uploadData.append('images', f));
-        
+
         const res = await fetch(`${baseUrl}/admin/room-categories/upload`, {
           method: 'POST',
           headers: { "Authorization": `Bearer ${token}` },
           body: uploadData
         });
-        
+
         if (!res.ok) {
-           const errData = await res.json().catch(() => ({}));
-           throw new Error(errData.message || "Lỗi khi upload ảnh.");
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.message || "Lỗi khi upload ảnh.");
         }
         const data = await res.json();
         return data.urls as string[];
@@ -125,7 +125,7 @@ export default function CreateRoomCategoryPage() {
       const galleryFiles = newImages
         .filter(img => img.id !== thumbnailId && img.file)
         .map(img => img.file as File);
-        
+
       if (galleryFiles.length > 0) {
         const galleryUrls = await uploadFiles(galleryFiles);
         payload.gallery_images = galleryUrls;
@@ -148,18 +148,18 @@ export default function CreateRoomCategoryPage() {
           if (responseData.message) {
             errorMessage = Array.isArray(responseData.message) ? responseData.message.join(", ") : responseData.message;
           }
-        } catch (e) {}
+        } catch (e) { }
         throw new Error(errorMessage);
       }
-      
+
       setUploadProgress(100);
       setSuccessMsg("Tạo hạng phòng thành công!");
-      
+
       // Chuyển hướng sau 1.5s
       setTimeout(() => {
         router.push("/admin/room-categories");
       }, 1500);
-      
+
     } catch (err: any) {
       setError(err.message || "Có lỗi xảy ra khi tạo hạng phòng.");
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -188,8 +188,8 @@ export default function CreateRoomCategoryPage() {
             <div className="w-16 h-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin mb-6"></div>
             <h3 className="text-xl font-bold text-on-surface mb-3">{uploadProgress === 100 ? "Đang xử lý..." : "Đang tải lên..."}</h3>
             <div className="w-full h-3 bg-surface-container-highest rounded-full overflow-hidden relative mb-2">
-              <div 
-                className="absolute top-0 left-0 bottom-0 bg-primary transition-all duration-300" 
+              <div
+                className="absolute top-0 left-0 bottom-0 bg-primary transition-all duration-300"
                 style={{ width: `${uploadProgress}%` }}
               ></div>
             </div>
@@ -216,9 +216,9 @@ export default function CreateRoomCategoryPage() {
           Quay lại danh sách
         </button>
       </div>
-        
+
       <form onSubmit={handleSubmit} className="space-y-8">
-        
+
         {/* Notifications */}
         {error && (
           <div className="bg-error/10 border border-error/20 text-error px-6 py-4 rounded-2xl flex items-start gap-3 shadow-sm animate-in fade-in slide-in-from-top-4">
@@ -257,7 +257,7 @@ export default function CreateRoomCategoryPage() {
                 placeholder="Ví dụ: Deluxe Ocean View Suite"
               />
             </div>
-            
+
             <div className="md:col-span-2">
               <label htmlFor="description" className={labelClasses}>Mô tả chi tiết</label>
               <textarea

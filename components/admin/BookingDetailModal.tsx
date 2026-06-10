@@ -5,24 +5,31 @@ import { Booking, BookingStatus, PaymentStatus } from '@/types/booking';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmt(iso: string) {
-  return new Date(iso).toLocaleDateString('vi-VN', {
+function fmt(iso?: string | null) {
+  if (!iso) return "--";
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return "--";
+  return date.toLocaleDateString('vi-VN', {
     day: '2-digit', month: '2-digit', year: 'numeric',
   });
 }
 
-function fmtCurrency(n: number) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
+function fmtCurrency(n?: number | string | null) {
+  const num = Number(n);
+  if (n == null || isNaN(num)) return "—";
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const STATUS_CFG: Record<BookingStatus, { label: string; bg: string; dot: string }> = {
-  pending:     { label: 'Chờ xác nhận', bg: 'bg-amber-50 border-amber-200',  dot: 'bg-amber-400' },
-  confirmed:   { label: 'Đã xác nhận',  bg: 'bg-blue-50 border-blue-200',    dot: 'bg-blue-500' },
-  checked_in:  { label: 'Đang ở',       bg: 'bg-emerald-50 border-emerald-200', dot: 'bg-emerald-500' },
-  checked_out: { label: 'Đã trả phòng', bg: 'bg-slate-50 border-slate-200',  dot: 'bg-slate-400' },
-  cancelled:   { label: 'Đã hủy',       bg: 'bg-red-50 border-red-200',      dot: 'bg-red-500' },
+  PENDING:     { label: 'Chờ xác nhận', bg: 'bg-amber-50 border-amber-200',  dot: 'bg-amber-400' },
+  CONFIRMED:   { label: 'Đã xác nhận',  bg: 'bg-blue-50 border-blue-200',    dot: 'bg-blue-500' },
+  CHECKED_IN:  { label: 'Đang ở',       bg: 'bg-emerald-50 border-emerald-200', dot: 'bg-emerald-500' },
+  CHECKED_OUT: { label: 'Đã trả phòng', bg: 'bg-slate-50 border-slate-200',  dot: 'bg-slate-400' },
+  COMPLETED:   { label: 'Đã hoàn thành', bg: 'bg-emerald-50 border-emerald-200', dot: 'bg-emerald-600' },
+  CANCELLED:   { label: 'Đã hủy',       bg: 'bg-red-50 border-red-200',      dot: 'bg-red-500' },
+  EXPIRED:     { label: 'Đã hết hạn',   bg: 'bg-slate-50 border-slate-200',  dot: 'bg-slate-400' },
 };
 
 const PAYMENT_CFG: Record<PaymentStatus, { label: string; cls: string }> = {
@@ -71,7 +78,8 @@ export default function BookingDetailModal({ booking, onClose, onViewDetail }: P
 
   if (!booking) return null;
 
-  const status = STATUS_CFG[booking.status] ?? { label: booking.status, bg: 'bg-slate-50 border-slate-200', dot: 'bg-slate-400' };
+  const actualStatus = booking.status ?? booking.bookingStatus ?? booking.booking_status ?? 'PENDING';
+  const status = STATUS_CFG[actualStatus] ?? { label: actualStatus, bg: 'bg-slate-50 border-slate-200', dot: 'bg-slate-400' };
   const payment = PAYMENT_CFG[booking.payment_status] ?? { label: booking.payment_status, cls: 'text-slate-600' };
 
   return (
@@ -90,7 +98,7 @@ export default function BookingDetailModal({ booking, onClose, onViewDetail }: P
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Mã booking</p>
-              <h2 className="text-lg font-bold text-slate-900 font-mono">#{booking.booking_code}</h2>
+              <h2 className="text-lg font-bold text-slate-900 font-mono">#{booking.bookingCode || booking.booking_code || '—'}</h2>
             </div>
             <button
               onClick={onClose}
@@ -114,12 +122,12 @@ export default function BookingDetailModal({ booking, onClose, onViewDetail }: P
         <div className="px-6 py-4 overflow-y-auto max-h-[60vh]">
           {/* Room */}
           <Row icon="bed" label="Phòng">
-            <span className="font-semibold">{booking.room?.name ?? '—'}</span>
+            <span className="font-semibold">{booking.room?.name || '—'}</span>
           </Row>
 
           {/* Customer */}
           <Row icon="person" label="Khách hàng">
-            <p className="font-semibold">{booking.customer?.name ?? '—'}</p>
+            <p className="font-semibold">{booking.customerName || booking.guestName || booking.customer?.name || '—'}</p>
             {booking.customer?.email && (
               <p className="text-slate-500 text-xs mt-0.5">{booking.customer.email}</p>
             )}
@@ -132,13 +140,13 @@ export default function BookingDetailModal({ booking, onClose, onViewDetail }: P
           <Row icon="calendar_month" label="Thời gian lưu trú">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-mono font-medium">
-                {fmt(booking.check_in)}
+                {fmt(booking.checkInDate || booking.check_in_date || booking.check_in)}
               </span>
               <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
               <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-mono font-medium">
-                {fmt(booking.check_out)}
+                {fmt(booking.checkOutDate || booking.check_out_date || booking.check_out)}
               </span>
               <span className="text-slate-400 text-xs">({booking.nights} đêm)</span>
             </div>
@@ -146,13 +154,13 @@ export default function BookingDetailModal({ booking, onClose, onViewDetail }: P
 
           {/* Guests */}
           <Row icon="group" label="Số khách">
-            {booking.guest_count} khách
+            {booking.guestCount || booking.guest_count} khách
           </Row>
 
           {/* Price */}
           <Row icon="payments" label="Tổng tiền">
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="font-bold text-slate-900 text-base">{fmtCurrency(booking.total_price)}</span>
+              <span className="font-bold text-slate-900 text-base">{fmtCurrency(booking.totalPrice || booking.total_price)}</span>
               <span className={`inline-flex px-2 py-0.5 rounded-full border text-xs font-semibold ${payment.cls}`}>
                 {payment.label}
               </span>
@@ -175,7 +183,7 @@ export default function BookingDetailModal({ booking, onClose, onViewDetail }: P
 
           {/* Created at */}
           <Row icon="schedule" label="Ngày tạo">
-            {new Date(booking.created_at).toLocaleString('vi-VN')}
+            {booking.created_at || (booking as any).createdAt ? new Date(booking.created_at || (booking as any).createdAt).toLocaleString('vi-VN') : '—'}
           </Row>
         </div>
 

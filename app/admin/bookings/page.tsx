@@ -6,41 +6,31 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { bookingService } from '@/services/booking.service';
 import { Booking, BookingQuery, BookingStatus, PaymentStatus } from '@/types/booking';
+import BookingStatusBadge, { STATUS_CONFIG } from '@/components/admin/BookingStatusBadge';
+import BookingActions from '@/components/admin/BookingActions';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+function formatCurrency(amount?: number | string | null): string {
+  const num = Number(amount);
+  if (amount == null || isNaN(num)) return "—";
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+function formatDate(iso?: string | null): string {
+  if (!iso) return "--";
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return "--";
+  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 // ─── Badges ──────────────────────────────────────────────────────────────────
 
-const STATUS_CONFIG: Record<BookingStatus, { label: string; className: string }> = {
-  pending:     { label: 'Chờ xác nhận', className: 'bg-amber-100 text-amber-700 border-amber-200' },
-  confirmed:   { label: 'Đã xác nhận',  className: 'bg-blue-100 text-blue-700 border-blue-200' },
-  checked_in:  { label: 'Đã nhận phòng', className: 'bg-green-100 text-green-700 border-green-200' },
-  checked_out: { label: 'Đã trả phòng', className: 'bg-slate-100 text-slate-600 border-slate-200' },
-  cancelled:   { label: 'Đã hủy',       className: 'bg-red-100 text-red-700 border-red-200' },
-};
-
 const PAYMENT_CONFIG: Record<PaymentStatus, { label: string; className: string }> = {
-  unpaid:   { label: 'Chưa thanh toán', className: 'bg-orange-100 text-orange-700 border-orange-200' },
-  paid:     { label: 'Đã thanh toán',   className: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  refunded: { label: 'Đã hoàn tiền',    className: 'bg-purple-100 text-purple-700 border-purple-200' },
+  unpaid: { label: 'Chưa thanh toán', className: 'bg-orange-100 text-orange-700 border-orange-200' },
+  paid: { label: 'Đã thanh toán', className: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  refunded: { label: 'Đã hoàn tiền', className: 'bg-purple-100 text-purple-700 border-purple-200' },
 };
-
-function StatusBadge({ status }: { status: BookingStatus }) {
-  const cfg = STATUS_CONFIG[status] ?? { label: status, className: 'bg-gray-100 text-gray-600 border-gray-200' };
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${cfg.className}`}>
-      {cfg.label}
-    </span>
-  );
-}
 
 function PaymentBadge({ status }: { status: PaymentStatus }) {
   const cfg = PAYMENT_CONFIG[status] ?? { label: status, className: 'bg-gray-100 text-gray-600 border-gray-200' };
@@ -74,22 +64,22 @@ export default function AdminBookingsPage() {
   const searchParams = useSearchParams();
 
   // Read initial state from URL
-  const [search, setSearch]               = useState(searchParams.get('search') ?? '');
-  const [status, setStatus]               = useState<BookingStatus | ''>(
+  const [search, setSearch] = useState(searchParams.get('search') ?? '');
+  const [status, setStatus] = useState<BookingStatus | ''>(
     (searchParams.get('status') as BookingStatus) ?? ''
   );
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | ''>(
     (searchParams.get('payment_status') as PaymentStatus) ?? ''
   );
-  const [dateFrom, setDateFrom]           = useState(searchParams.get('date_from') ?? '');
-  const [dateTo, setDateTo]               = useState(searchParams.get('date_to') ?? '');
-  const [page, setPage]                   = useState(Number(searchParams.get('page') ?? 1));
+  const [dateFrom, setDateFrom] = useState(searchParams.get('date_from') ?? '');
+  const [dateTo, setDateTo] = useState(searchParams.get('date_to') ?? '');
+  const [page, setPage] = useState(Number(searchParams.get('page') ?? 1));
 
-  const [bookings, setBookings]   = useState<Booking[]>([]);
-  const [total, setTotal]         = useState(0);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const limit = 10;
 
@@ -105,6 +95,8 @@ export default function AdminBookingsPage() {
         check_in_to: dateTo || undefined,
       };
       const res = await bookingService.getBookings(query);
+      console.log('API Bookings Response (First item):', res.data?.[0]);
+      console.log('API Bookings Response (All):', res.data);
       setBookings(res.data);
       setTotal(res.total);
       setTotalPages(res.totalPages);
@@ -132,15 +124,19 @@ export default function AdminBookingsPage() {
     fetchBookings();
   }, [fetchBookings]);
 
+  useEffect(() => {
+    console.log("BOOKINGS", bookings);
+  }, [bookings]);
+
   // Sync state to URL
   useEffect(() => {
     const params = new URLSearchParams();
-    if (search)        params.set('search', search);
-    if (status)        params.set('status', status);
+    if (search) params.set('search', search);
+    if (status) params.set('status', status);
     if (paymentStatus) params.set('payment_status', paymentStatus);
-    if (dateFrom)      params.set('date_from', dateFrom);
-    if (dateTo)        params.set('date_to', dateTo);
-    if (page > 1)      params.set('page', String(page));
+    if (dateFrom) params.set('date_from', dateFrom);
+    if (dateTo) params.set('date_to', dateTo);
+    if (page > 1) params.set('page', String(page));
     router.replace(`/admin/bookings?${params.toString()}`, { scroll: false });
   }, [search, status, paymentStatus, dateFrom, dateTo, page, router]);
 
@@ -312,14 +308,14 @@ export default function AdminBookingsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Mã booking</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Mã Booking</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Khách hàng</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Phòng</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Check-in</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Check-out</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Tổng tiền</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Thanh toán</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Trạng thái</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Hành động</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -351,35 +347,39 @@ export default function AdminBookingsPage() {
                     bookings.map((booking, index) => (
                       <tr
                         key={booking.id}
-                        className={`border-b border-slate-100 hover:bg-slate-50/80 transition-colors cursor-pointer group ${
-                          index % 2 === 0 ? '' : 'bg-slate-50/30'
-                        }`}
+                        className={`border-b border-slate-100 hover:bg-slate-50/80 transition-colors cursor-pointer group ${index % 2 === 0 ? '' : 'bg-slate-50/30'
+                          }`}
                         onClick={() => router.push(`/admin/bookings/${booking.id}`)}
                       >
                         <td className="px-4 py-3.5">
                           <span className="font-mono text-xs font-semibold text-blue-600 group-hover:text-blue-700">
-                            #{booking.booking_code}
+                            #{booking.booking_code || booking.bookingCode || '—'}
                           </span>
                         </td>
                         <td className="px-4 py-3.5">
                           <div>
-                            <p className="font-medium text-slate-800">{booking.customer?.name ?? '—'}</p>
+                            <p className="font-medium text-slate-800">{booking.customerName || booking.guestName || booking.customer?.name || '—'}</p>
                             <p className="text-xs text-slate-400">{booking.customer?.email ?? ''}</p>
                           </div>
                         </td>
                         <td className="px-4 py-3.5">
-                          <span className="text-slate-700 font-medium">{booking.room?.name ?? '—'}</span>
+                          <span className="text-slate-700 font-medium">{booking.room?.name || '—'}</span>
                         </td>
-                        <td className="px-4 py-3.5 text-slate-600">{formatDate(booking.check_in)}</td>
-                        <td className="px-4 py-3.5 text-slate-600">{formatDate(booking.check_out)}</td>
+                        <td className="px-4 py-3.5 text-slate-600">{formatDate(booking.checkInDate || booking.checkInDate || booking.check_in)}</td>
+                        <td className="px-4 py-3.5 text-slate-600">{formatDate(booking.checkOutDate || booking.check_out_date || booking.check_out)}</td>
                         <td className="px-4 py-3.5 text-right font-semibold text-slate-800">
-                          {formatCurrency(booking.total_price)}
+                          {formatCurrency(booking.totalPrice || booking.total_price)}
                         </td>
                         <td className="px-4 py-3.5">
-                          <PaymentBadge status={booking.payment_status} />
+                          <BookingStatusBadge status={booking.status ?? booking.bookingStatus ?? booking.booking_status} />
                         </td>
                         <td className="px-4 py-3.5">
-                          <StatusBadge status={booking.status} />
+                          <BookingActions
+                            booking={booking}
+                            status={booking.status ?? booking.bookingStatus ?? booking.booking_status}
+                            onSuccess={fetchBookings}
+                            size="sm"
+                          />
                         </td>
                       </tr>
                     ))
@@ -413,11 +413,10 @@ export default function AdminBookingsPage() {
                         <button
                           key={p}
                           onClick={() => setPage(p)}
-                          className={`min-w-[36px] h-9 px-3 rounded-lg text-sm font-medium transition-colors ${
-                            p === page
-                              ? 'bg-slate-900 text-white'
-                              : 'text-slate-600 hover:bg-slate-100'
-                          }`}
+                          className={`min-w-[36px] h-9 px-3 rounded-lg text-sm font-medium transition-colors ${p === page
+                            ? 'bg-slate-900 text-white'
+                            : 'text-slate-600 hover:bg-slate-100'
+                            }`}
                         >
                           {p}
                         </button>

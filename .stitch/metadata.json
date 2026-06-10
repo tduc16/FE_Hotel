@@ -1,10 +1,18 @@
 {
   "name": "projects/12806413409878354001",
   "projectId": "12806413409878354001",
-  "title": "Admin Booking Management",
+  "title": "Hotel Hoang Minh - Manage Booking",
   "visibility": "PRIVATE",
   "projectType": "PROJECT_DESIGN",
   "origin": "STITCH",
-  "deviceType": "DESKTOP",
-  "screens": {}
+  "deviceType": "MOBILE",
+  "screens": {
+    "booking-lookup": {
+      "id": "0f9af6e948fe4d3198b3b96e45ba2e4d",
+      "sourceScreen": "projects/12806413409878354001/screens/0f9af6e948fe4d3198b3b96e45ba2e4d",
+      "width": 780,
+      "height": 3024,
+      "title": "Booking Lookup - Mobile"
+    }
+  }
 }

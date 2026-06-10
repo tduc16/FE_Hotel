@@ -4,7 +4,9 @@ import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { roomService } from "@/services/room.service";
+import { bookingService } from "@/services/booking.service";
 import { RoomCategory } from "@/types/room";
+import { toast } from "react-hot-toast";
 
 // Types
 interface BookingData {
@@ -63,6 +65,7 @@ function BookingContent() {
   const [nights, setNights] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Fetch room data
   useEffect(() => {
@@ -222,41 +225,56 @@ function BookingContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validate() || !roomData) return;
+    if (!validate() || !roomData || !roomId) return;
 
     setIsSubmitting(true);
+    setFormError(null);
 
     console.log("Submitting booking data:", { ...formData, roomId, totalAmount: nights * roomData.base_price });
 
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      let pm = formData.paymentMethod;
+      if (pm === 'PAY_AT_HOTEL') pm = 'CASH';
+      if (pm === 'E_WALLET') pm = 'EWALLET';
 
-    setIsSubmitting(false);
-    setSubmitSuccess(true);
+      const result = await bookingService.createBooking({
+        customer_name: formData.fullName,
+        phone: formData.phone,
+        email: formData.email,
+        note: formData.notes,
+        room_category_id: roomId,
+        check_in_date: formData.checkIn,
+        check_out_date: formData.checkOut,
+        guest_count: parseInt(formData.guests),
+        payment_method: pm,
+      });
+
+      if (result && result.error) {
+        setFormError(result.message);
+        toast.error(result.message);
+        return;
+      }
+
+      if (result && (result.id || result.booking_code || result.data?.id)) {
+        const bookingCode = result.booking_code || result.data?.booking_code;
+        router.push(`/booking-success?code=${bookingCode || ''}`);
+      } else {
+        throw new Error("Không nhận được dữ liệu đặt phòng từ máy chủ.");
+      }
+    } catch (err: any) {
+      console.error("Booking error:", err);
+      setFormError(err.message || 'Đã xảy ra lỗi khi đặt phòng. Vui lòng thử lại.');
+      toast.error(err.message || 'Đã xảy ra lỗi khi đặt phòng. Vui lòng thử lại.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN').format(amount) + ' VND';
   };
 
-  if (submitSuccess) {
-    return (
-      <div className="max-w-3xl mx-auto px-4 py-24 text-center">
-        <div className="bg-surface-container-lowest rounded-2xl shadow-xl p-12 border border-outline-variant/10">
-          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="material-symbols-outlined text-primary text-4xl">check_circle</span>
-          </div>
-          <h1 className="text-3xl font-extrabold text-on-surface mb-4">Đặt phòng thành công!</h1>
-          <p className="text-on-surface-variant mb-8 text-lg">Cảm ơn {formData.fullName}. Chúng tôi đã nhận được yêu cầu đặt phòng của bạn và sẽ gửi SMS / Email xác nhận trong thời gian sớm nhất.</p>
-          <button
-            onClick={() => router.push('/')}
-            className="bg-primary-container flex items-center justify-center gap-2 mx-auto text-on-primary-container px-8 py-3 rounded-lg font-bold hover:bg-primary hover:text-on-primary transition-all shadow-sm active:scale-95"
-          >
-            Quay về trang chủ
-          </button>
-        </div>
-      </div>
-    );
-  }
+
 
   if (isLoadingRoom) {
     return (
@@ -577,6 +595,13 @@ function BookingContent() {
                 </label>
                 {errors.agreeTerms && <p className="text-error text-xs font-medium mt-1 pl-2">{errors.agreeTerms}</p>}
               </div>
+
+              {formError && (
+                <div className="bg-error-container/20 text-error p-3 rounded-lg text-sm border border-error/20 flex items-start gap-2">
+                  <span className="material-symbols-outlined text-base">error</span>
+                  <span>{formError}</span>
+                </div>
+              )}
 
               <button
                 type="submit"
