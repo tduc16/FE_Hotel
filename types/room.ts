@@ -1,3 +1,5 @@
+import { HotelService } from './services';
+
 export interface RoomCategory {
   id: string;
   name: string;
@@ -10,4 +12,5 @@ export interface RoomCategory {
   available_rooms: number;
   is_available: boolean;
   is_active: boolean;
+  services?: HotelService[];
 }

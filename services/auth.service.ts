@@ -30,8 +30,8 @@ export const authService = {
     if (typeof window !== 'undefined') {
       const token = data?.access_token ?? data?.token;
       if (token) {
-        localStorage.setItem('access_token', token);
-        console.log('[authService] Token đã lưu vào localStorage (access_token)');
+        localStorage.setItem('admin_access_token', token);
+        console.log('[authService] Token đã lưu vào localStorage (admin_access_token)');
       }
       if (data?.admin) {
         localStorage.setItem('admin_info', JSON.stringify(data.admin));
@@ -43,7 +43,7 @@ export const authService = {
 
   logout: () => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('access_token');
+      localStorage.removeItem('admin_access_token');
       localStorage.removeItem('admin_info');
       console.log('[authService] Đã đăng xuất, xóa token');
     }
@@ -51,7 +51,7 @@ export const authService = {
 
   getToken: () => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('access_token');
+      return localStorage.getItem('admin_access_token');
     }
     return null;
   },

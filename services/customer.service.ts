@@ -4,7 +4,7 @@ import type { Booking, BookingPaginatedResponse, BookingQuery } from '@/types/bo
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 const getAuthHeaders = (): HeadersInit => {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('customer_token') : null;
+  const token = typeof window !== 'undefined' ? localStorage.getItem('customer_access_token') : null;
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),

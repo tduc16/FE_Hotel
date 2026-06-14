@@ -12,7 +12,7 @@ export default function AdminSidebar() {
     { name: "Loại phòng", href: "/admin/room-categories", icon: "category" },
     { name: "Đặt phòng", href: "/admin/bookings", icon: "book_online" },
     { name: "Lịch phòng", href: "/admin/bookings/calendar", icon: "calendar_month" },
-    { name: "Tiện nghi", href: "/admin/amenities", icon: "tv" },
+    { name: "Dịch vụ", href: "/admin/services", icon: "room_service" },
     { name: "Đánh giá", href: "/admin/reviews", icon: "star" },
     { name: "Liên hệ", href: "/admin/contacts", icon: "mail" },
   ];

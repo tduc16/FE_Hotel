@@ -170,7 +170,7 @@ export default function BookingDetailPage() {
       if (e instanceof Error && e.message === 'UNAUTHORIZED') {
         setError('Phiên đăng nhập đã hết hạn hoặc bạn không có quyền truy cập. Đang chuyển hướng...');
         if (typeof window !== 'undefined') {
-          localStorage.removeItem('access_token');
+          localStorage.removeItem('admin_access_token');
           localStorage.removeItem('admin_info');
         }
         setTimeout(() => {

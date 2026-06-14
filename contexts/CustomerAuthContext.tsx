@@ -42,7 +42,7 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
 
   const login = useCallback((customer: Customer | null | undefined, token: string | null | undefined) => {
     if (token) {
-      localStorage.setItem('customer_token', token);
+      localStorage.setItem('customer_access_token', token);
     }
     if (customer) {
       localStorage.setItem('customer_info', JSON.stringify(customer));

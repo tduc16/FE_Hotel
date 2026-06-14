@@ -10,13 +10,11 @@ import { PublicBookingStatusBadge, PublicPaymentStatusBadge } from '@/components
 import { CancelBookingModal } from '@/components/booking/CancelBookingModal';
 import { BookingSummarySkeleton } from '@/components/booking/BookingSkeletons';
 
-// ─────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────
+const SERIF = { fontFamily: "var(--font-cormorant), Georgia, serif" };
 
 function formatCurrency(amount: number | null | undefined): string {
   if (amount == null) return '—';
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+  return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
 }
 
 function formatDate(dateStr: string | null | undefined): string {
@@ -36,19 +34,15 @@ function formatDate(dateStr: string | null | undefined): string {
 
 const CANCELLABLE_STATUSES: BookingStatus[] = ['PENDING', 'CONFIRMED'];
 
-// ─────────────────────────────────────────────
-// Info Row
-// ─────────────────────────────────────────────
-
 function InfoRow({ label, value, highlight }: { label: string; value: React.ReactNode; highlight?: boolean }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-3 border-b border-surface-container-high last:border-0">
-      <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant flex-shrink-0 pt-0.5">
+    <div className="flex items-start justify-between gap-4 py-4.5 border-b border-stone-100 last:border-0">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A97E] flex-shrink-0 pt-0.5">
         {label}
       </span>
       <span
         className={`text-sm text-right font-medium ${
-          highlight ? 'text-primary text-base font-extrabold' : 'text-on-surface'
+          highlight ? 'text-[#C8A97E] text-base font-semibold' : 'text-stone-800'
         }`}
       >
         {value}
@@ -56,10 +50,6 @@ function InfoRow({ label, value, highlight }: { label: string; value: React.Reac
     </div>
   );
 }
-
-// ─────────────────────────────────────────────
-// Main Page
-// ─────────────────────────────────────────────
 
 export default function ManageBookingPage() {
   const params = useParams();
@@ -74,7 +64,6 @@ export default function ManageBookingPage() {
   const [cancelSuccess, setCancelSuccess] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
-  // ── Fetch booking ──
   const fetchBooking = useCallback(async () => {
     if (!token) {
       setError('Liên kết không hợp lệ.');
@@ -101,7 +90,6 @@ export default function ManageBookingPage() {
     fetchBooking();
   }, [fetchBooking]);
 
-  // ── Cancel booking ──
   const handleConfirmCancel = async () => {
     if (!token) return;
     setIsCancelling(true);
@@ -111,7 +99,6 @@ export default function ManageBookingPage() {
       if (result.success) {
         setCancelSuccess(true);
         setShowCancelModal(false);
-        // Update local status instantly
         setBooking((prev) => prev ? { ...prev, status: 'CANCELLED' } : prev);
       } else {
         setCancelError(result.message || 'Không thể huỷ đặt phòng.');
@@ -125,7 +112,6 @@ export default function ManageBookingPage() {
     }
   };
 
-  // ── Derived values ──
   const canCancel =
     booking?.status != null && CANCELLABLE_STATUSES.includes(booking.status);
 
@@ -168,64 +154,60 @@ export default function ManageBookingPage() {
     booking?.total_amount ??
     null;
 
-  // ════════════════════════════════════════════
-  // RENDER STATES
-  // ════════════════════════════════════════════
-
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#F8F6F3]">
       {/* ── Page Header ── */}
-      <div
-        className="w-full px-4 py-12 md:py-16 text-center"
-        style={{
-          background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #00658f 100%)',
-        }}
-      >
-        <div className="max-w-2xl mx-auto space-y-3">
+      <div className="w-full px-6 py-20 text-center bg-[#1A1A1A] relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10 bg-cover bg-center"
+          style={{ backgroundImage: "url('https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1920&q=80')" }} />
+        
+        <div className="relative z-10 max-w-2xl mx-auto space-y-3">
           <Link
             href="/booking-lookup"
-            className="inline-flex items-center gap-2 text-white/70 hover:text-white text-sm transition-colors"
+            className="inline-flex items-center gap-2 text-white/50 hover:text-[#C8A97E] text-xs font-semibold uppercase tracking-widest transition-colors"
           >
             <span className="material-symbols-outlined text-base">arrow_back</span>
             Tìm đặt phòng khác
           </Link>
-          <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center mx-auto">
-            <span className="material-symbols-outlined text-white text-xl">hotel</span>
+          
+          <div className="w-12 h-12 border border-[#C8A97E]/30 flex items-center justify-center mx-auto mb-2">
+            <span className="material-symbols-outlined text-[#C8A97E] text-xl">receipt_long</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white">
-            {isLoading ? 'Đang tải...' : bookingCode !== '—' ? `Đặt phòng #${bookingCode}` : 'Quản lý đặt phòng'}
+
+          <h1 className="text-3xl md:text-4xl font-light text-white tracking-tight" style={SERIF}>
+            {isLoading ? 'Đang tải...' : bookingCode !== '—' ? `Chi tiết đơn #${bookingCode}` : 'Chi tiết đặt phòng'}
           </h1>
-          <p className="text-white/60 text-sm">Hotel Hoang Minh</p>
+          <p className="text-[#C8A97E] text-[10px] uppercase tracking-[0.3em] font-medium">Hotel Hoang Minh</p>
         </div>
       </div>
 
       {/* ── Content ── */}
-      <div className="max-w-2xl mx-auto px-4 py-10 space-y-6">
+      <div className="max-w-2xl mx-auto px-6 py-12 space-y-8">
 
         {/* ── Loading skeleton ── */}
         {isLoading && <BookingSummarySkeleton />}
 
         {/* ── Error state ── */}
         {!isLoading && error && (
-          <div className="bg-white rounded-2xl shadow-sm border border-red-200 p-10 text-center space-y-4">
-            <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto">
-              <span className="material-symbols-outlined text-red-500 text-3xl">error_outline</span>
+          <div className="bg-white border border-stone-200 p-10 text-center space-y-5 shadow-sm">
+            <div className="w-16 h-16 border border-[#C8A97E]/30 flex items-center justify-center mx-auto">
+              <span className="material-symbols-outlined text-[#C8A97E] text-3xl">error_outline</span>
             </div>
-            <h2 className="text-xl font-bold text-on-surface">Không thể tải đặt phòng</h2>
-            <p className="text-on-surface-variant text-sm leading-relaxed">{error}</p>
+            <h2 className="text-xl font-light text-stone-900" style={SERIF}>Không thể tải đặt phòng</h2>
+            <p className="text-stone-500 text-sm leading-relaxed">{error}</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
               <button
                 onClick={fetchBooking}
-                className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary/90 transition-all active:scale-95"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#C8A97E] hover:bg-[#b5956a] text-white text-xs font-medium uppercase tracking-widest transition-all"
               >
-                <span className="material-symbols-outlined text-sm">refresh</span>
+                <span className="material-symbols-outlined text-base">refresh</span>
                 Thử lại
               </button>
               <Link
                 href="/booking-lookup"
-                className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-surface-container-low text-on-surface rounded-xl font-semibold text-sm hover:bg-surface-container transition-all border border-outline-variant/30"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-stone-200 text-stone-600 text-xs font-medium uppercase tracking-widest hover:border-stone-400 transition-all"
               >
-                <span className="material-symbols-outlined text-sm">search</span>
+                <span className="material-symbols-outlined text-base">search</span>
                 Tìm lại
               </Link>
             </div>
@@ -239,15 +221,15 @@ export default function ManageBookingPage() {
             {cancelSuccess && (
               <div
                 role="alert"
-                className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-2xl px-6 py-4 shadow-sm"
+                className="flex items-center gap-4 bg-emerald-50 border border-emerald-150 p-6 shadow-sm"
               >
-                <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                  <span className="material-symbols-outlined text-green-600 text-lg">check_circle</span>
+                <div className="w-9 h-9 bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                  <span className="material-symbols-outlined text-emerald-600 text-lg">check</span>
                 </div>
                 <div>
-                  <p className="text-green-800 font-bold text-sm">Huỷ đặt phòng thành công.</p>
-                  <p className="text-green-700 text-xs mt-0.5">
-                    Đặt phòng của bạn đã được huỷ. Chúng tôi sẽ liên hệ nếu cần thêm thông tin.
+                  <p className="text-emerald-800 font-bold text-sm">Đã hủy đơn đặt phòng thành công.</p>
+                  <p className="text-emerald-700 text-xs mt-0.5 leading-relaxed">
+                    Yêu cầu hủy đặt phòng của quý khách đã được thực hiện. Chúng tôi sẽ liên hệ lại nếu cần thêm thông tin.
                   </p>
                 </div>
               </div>
@@ -257,31 +239,29 @@ export default function ManageBookingPage() {
             {cancelError && (
               <div
                 role="alert"
-                className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-2xl px-6 py-4"
+                className="flex items-center gap-3 bg-red-50 border border-red-100 p-6"
               >
-                <span className="material-symbols-outlined text-red-500 text-xl flex-shrink-0">error</span>
+                <span className="material-symbols-outlined text-red-500 text-lg flex-shrink-0">error</span>
                 <p className="text-red-700 text-sm font-medium">{cancelError}</p>
               </div>
             )}
 
             {/* Booking Summary Card */}
-            <div className="bg-white rounded-2xl shadow-sm border border-outline-variant/20 overflow-hidden">
+            <div className="bg-white border border-stone-100 shadow-sm">
               {/* Card Header */}
-              <div className="px-8 py-6 bg-surface-container-low border-b border-surface-container-high flex items-center justify-between gap-4">
+              <div className="px-8 py-6 bg-[#F8F6F3] border-b border-stone-100 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <span className="material-symbols-outlined text-primary text-xl">receipt_long</span>
-                  </div>
+                  <span className="material-symbols-outlined text-[#C8A97E] text-xl">receipt_long</span>
                   <div>
-                    <h2 className="text-base font-bold text-on-surface">Chi tiết đặt phòng</h2>
-                    <p className="text-xs text-on-surface-variant mt-0.5">Mã: {bookingCode}</p>
+                    <h2 className="text-xs uppercase tracking-widest font-semibold text-stone-850">Thông tin đơn phòng</h2>
+                    <p className="text-[10px] text-stone-400 font-mono mt-0.5">MÃ: {bookingCode}</p>
                   </div>
                 </div>
                 <PublicBookingStatusBadge status={booking.status} size="md" />
               </div>
 
               {/* Info Rows */}
-              <div className="px-8 py-4">
+              <div className="px-8 py-3">
                 <InfoRow label="Mã đặt phòng" value={bookingCode} />
                 <InfoRow label="Khách hàng" value={customerName} />
                 <InfoRow label="Điện thoại" value={customerPhone} />
@@ -294,18 +274,18 @@ export default function ManageBookingPage() {
               </div>
 
               {/* Total + Payment Status */}
-              <div className="px-8 py-6 border-t border-surface-container-high bg-surface-container-low/50">
+              <div className="px-8 py-6 border-t border-stone-100 bg-[#F8F6F3]/50">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-400">
                       Tổng tiền
                     </p>
-                    <p className="text-2xl font-extrabold text-primary mt-1">
+                    <p className="text-2xl font-semibold text-[#C8A97E] mt-1">
                       {formatCurrency(totalAmount)}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-400 mb-1">
                       Thanh toán
                     </p>
                     <PublicPaymentStatusBadge status={booking.payment_status} />
@@ -319,9 +299,9 @@ export default function ManageBookingPage() {
               <button
                 id="cancel-booking-btn"
                 onClick={() => setShowCancelModal(true)}
-                className="w-full h-13 flex items-center justify-center gap-2 border-2 border-red-300 text-red-600 hover:bg-red-50 rounded-xl font-bold text-sm transition-all active:scale-95 py-3.5"
+                className="w-full border border-red-300 hover:bg-red-50 text-red-600 py-3.5 text-xs font-semibold uppercase tracking-widest transition-all"
               >
-                <span className="material-symbols-outlined text-xl">cancel</span>
+                <span className="material-symbols-outlined text-base align-middle mr-1.5">cancel</span>
                 Huỷ đặt phòng
               </button>
             )}
@@ -330,16 +310,16 @@ export default function ManageBookingPage() {
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <Link
                 href="/booking-lookup"
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-surface-container-low hover:bg-surface-container text-on-surface rounded-xl font-semibold text-sm transition-all border border-outline-variant/30"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3.5 border border-stone-200 text-stone-600 text-xs font-semibold uppercase tracking-widest hover:border-stone-400 transition-all"
               >
-                <span className="material-symbols-outlined text-sm">search</span>
+                <span className="material-symbols-outlined text-base">search</span>
                 Tìm đặt phòng khác
               </Link>
               <Link
                 href="/rooms"
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl font-semibold text-sm transition-all"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3.5 bg-[#C8A97E] hover:bg-[#b5956a] text-white text-xs font-semibold uppercase tracking-widest transition-all"
               >
-                <span className="material-symbols-outlined text-sm">hotel</span>
+                <span className="material-symbols-outlined text-base">hotel</span>
                 Đặt phòng mới
               </Link>
             </div>
@@ -347,7 +327,6 @@ export default function ManageBookingPage() {
         )}
       </div>
 
-      {/* ── Cancel Modal ── */}
       <CancelBookingModal
         isOpen={showCancelModal}
         isCancelling={isCancelling}

@@ -34,7 +34,7 @@ export default function BookingCalendarPage() {
     setLoading(true);
     setError(null);
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
+      const token = typeof window !== 'undefined' ? localStorage.getItem('admin_access_token') : '';
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
@@ -50,7 +50,7 @@ export default function BookingCalendarPage() {
 
       if (res.status === 401) {
         if (typeof window !== 'undefined') {
-          localStorage.removeItem('access_token');
+          localStorage.removeItem('admin_access_token');
           localStorage.removeItem('admin_info');
         }
         router.push('/admin/login');

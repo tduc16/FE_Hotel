@@ -10,7 +10,7 @@ import type {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 const getAuthHeaders = (): HeadersInit => {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('customer_token') : null;
+  const token = typeof window !== 'undefined' ? localStorage.getItem('customer_access_token') : null;
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -45,16 +45,15 @@ export const customerAuthService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    // Backend trả về: { success, message, data: { access_token, customer } }
-    const result = await handleResponse<{ success: boolean; message: string; data: CustomerAuthResponse }>(res);
-    console.log("LOGIN RESPONSE:", result);
-    const data = result?.data; // unwrap lớp envelope
+    // Backend trả về trực tiếp: { access_token, customer }
+    const data = await handleResponse<CustomerAuthResponse>(res);
+    console.log("LOGIN RESPONSE:", data);
     console.log('Customer:', data?.customer);
     if (typeof window !== 'undefined') {
       const token = data?.access_token;
       const customerData = data?.customer;
       if (token) {
-        localStorage.setItem('customer_token', token);
+        localStorage.setItem('customer_access_token', token);
       }
       // Chỉ lưu nếu customerData hợp lệ — tránh lưu "undefined" vào localStorage
       if (customerData) {
@@ -96,14 +95,14 @@ export const customerAuthService = {
 
   logout: () => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('customer_token');
+      localStorage.removeItem('customer_access_token');
       localStorage.removeItem('customer_info');
     }
   },
 
   getToken: (): string | null => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('customer_token');
+      return localStorage.getItem('customer_access_token');
     }
     return null;
   },

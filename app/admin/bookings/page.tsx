@@ -106,7 +106,7 @@ export default function AdminBookingsPage() {
         setError('Phiên đăng nhập đã hết hạn hoặc bạn không có quyền truy cập. Đang chuyển hướng...');
         // We can do authService.logout() if imported, but we can also just clear localStorage directly here or import it
         if (typeof window !== 'undefined') {
-          localStorage.removeItem('access_token');
+          localStorage.removeItem('admin_access_token');
           localStorage.removeItem('admin_info');
         }
         setTimeout(() => {

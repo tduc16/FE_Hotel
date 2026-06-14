@@ -154,7 +154,7 @@ export default function BookingCalendar() {
       if (e instanceof Error && e.message === 'UNAUTHORIZED') {
         setError('Phiên đăng nhập đã hết hạn. Đang chuyển hướng...');
         if (typeof window !== 'undefined') {
-          localStorage.removeItem('access_token');
+          localStorage.removeItem('admin_access_token');
           localStorage.removeItem('admin_info');
         }
         setTimeout(() => {

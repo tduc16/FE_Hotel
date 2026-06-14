@@ -4,6 +4,8 @@ import { useEffect, useState, FormEvent, use } from "react";
 import { useRouter } from "next/navigation";
 import { authService } from "@/services/auth.service";
 import ImageUploader, { ImageItem } from "@/components/admin/ImageUploader";
+import hotelServiceApi from "@/services/hotel-service.service";
+import { HotelService } from "@/types/services";
 
 // Chuẩn hoá path ảnh: bỏ domain localhost, chỉ giữ pathname
 const normalizePath = (url: string) => {
@@ -65,6 +67,9 @@ export default function EditRoomCategoryPage({
   const [removedImages, setRemovedImages] = useState<string[]>([]);
   const [thumbnailId, setThumbnailId] = useState("");
 
+  const [availableServices, setAvailableServices] = useState<HotelService[]>([]);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -89,6 +94,15 @@ export default function EditRoomCategoryPage({
     setError(null);
     try {
       const token = authService.getToken();
+
+      // Load services
+      try {
+        const servicesList = await hotelServiceApi.getServices();
+        setAvailableServices(servicesList);
+      } catch (e) {
+        console.error("Lỗi khi load services:", e);
+      }
+
       const data = await safeFetch(`${API_BASE}/admin/room-categories/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -119,6 +133,7 @@ export default function EditRoomCategoryPage({
           : ""
       );
       setIsActive(category.is_active !== false);
+      setSelectedServiceIds(category.services?.map((s: any) => s.id) || []);
 
       // ── Mapping ảnh ──
       const imgs: ImageItem[] = [];
@@ -235,6 +250,13 @@ export default function EditRoomCategoryPage({
         JSON.stringify(initialData?.amenities ?? [])
       )
         payload.amenities = curAmenities;
+
+      // So sánh serviceIds thay đổi
+      const initialServiceIds = initialData?.services?.map((s: any) => s.id) || [];
+      const isServicesChanged = JSON.stringify([...selectedServiceIds].sort()) !== JSON.stringify([...initialServiceIds].sort());
+      if (isServicesChanged) {
+        payload.serviceIds = selectedServiceIds;
+      }
 
       // Thumbnail
       const allImages = [...existingImages, ...newImages];
@@ -511,6 +533,40 @@ export default function EditRoomCategoryPage({
                 />
                 <div className="w-14 h-8 bg-surface-container-high peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary shadow-inner"></div>
               </label>
+            </div>
+
+            {/* Dịch vụ đi kèm */}
+            <div className="md:col-span-2 border-t border-outline-variant/20 pt-6 mt-4">
+              <label className={labelClasses}>Dịch vụ đi kèm (Có sẵn trong hạng phòng)</label>
+              {availableServices.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 bg-surface-container-highest/20 p-5 rounded-2xl border border-outline-variant/30">
+                  {availableServices.map((service) => {
+                    const isChecked = selectedServiceIds.includes(service.id);
+                    return (
+                      <label key={service.id} className="flex items-center gap-3 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (isChecked) {
+                              setSelectedServiceIds(selectedServiceIds.filter(id => id !== service.id));
+                            } else {
+                              setSelectedServiceIds([...selectedServiceIds, service.id]);
+                            }
+                          }}
+                          className="w-4 h-4 rounded text-primary focus:ring-primary bg-surface-container border-none"
+                        />
+                        <span className="text-sm font-medium text-on-surface flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[18px] text-on-surface-variant">{service.icon}</span>
+                          {service.name}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-on-surface-variant italic">Chưa có dịch vụ khách sạn hoạt động nào được thiết lập. Hãy thiết lập tại mục Quản lý Dịch vụ.</p>
+              )}
             </div>
           </div>
         </div>

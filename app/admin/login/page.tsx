@@ -32,20 +32,21 @@ export default function AdminLogin() {
     try {
       const data = await authService.login(username, password);
       // Ensure token exists in response payload
-      // According to backend it might return access_token
-      const token = data.access_token || data.token;
+      const token = data.access_token;
       if (token) {
-        localStorage.setItem("access_token", token);
+        localStorage.setItem("admin_access_token", token);
       }
       
-      // Attempt to save user info if backend provided it
-      // Otherwise save basic info
-      const userInfo = {
-        username: username,
-        role: "admin",
-        ...data.user
-      };
-      localStorage.setItem("admin_info", JSON.stringify(userInfo));
+      // Save admin info from backend response
+      if (data.admin) {
+        localStorage.setItem("admin_info", JSON.stringify(data.admin));
+      } else {
+        const userInfo = {
+          username: username,
+          role: "SUPER_ADMIN",
+        };
+        localStorage.setItem("admin_info", JSON.stringify(userInfo));
+      }
 
       router.push("/admin/dashboard");
     } catch (err: any) {

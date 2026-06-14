@@ -224,9 +224,9 @@ export const bookingService = {
 // Key phải khớp với auth.service.ts: 'access_token'
 function getToken(): string {
   if (typeof window === 'undefined') return '';
-  const token = localStorage.getItem('access_token') ?? '';
+  const token = localStorage.getItem('admin_access_token') ?? '';
   if (!token) {
-    console.warn('[bookingService] ⚠️ Không tìm thấy access_token trong localStorage');
+    console.warn('[bookingService] ⚠️ Không tìm thấy admin_access_token trong localStorage');
   }
   return token;
 }

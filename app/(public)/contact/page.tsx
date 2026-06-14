@@ -1,126 +1,186 @@
+const SERIF = { fontFamily: "var(--font-cormorant), Georgia, serif" };
+
+const FAQS = [
+  {
+    q: "Giờ nhận phòng và trả phòng là khi nào?",
+    a: "Thời gian nhận phòng tiêu chuẩn là từ 14:00 và thời gian trả phòng là trước 12:00 trưa. Nếu quý khách có nhu cầu nhận phòng sớm hoặc trả phòng muộn, vui lòng liên hệ trước để được hỗ trợ tốt nhất.",
+    open: true,
+  },
+  {
+    q: "Khách sạn có dịch vụ đưa đón sân bay không?",
+    a: "Có, chúng tôi cung cấp dịch vụ đưa đón sân bay 24/7 với đa dạng các dòng xe từ 4 đến 16 chỗ. Quý khách vui lòng cung cấp thông tin chuyến bay ít nhất 24 giờ trước khi đến.",
+    open: false,
+  },
+  {
+    q: "Chính sách hủy phòng như thế nào?",
+    a: "Chính sách hủy phòng phụ thuộc vào loại giá phòng quý khách đã đặt. Thông thường, quý khách có thể hủy miễn phí trước 48 giờ tính từ ngày nhận phòng.",
+    open: false,
+  },
+];
+
 export default function Contact() {
   return (
-    <main className="pt-32 pb-24 px-6 max-w-7xl mx-auto">
-      {/* Hero Section Title */}
-      <div className="mb-16 md:ml-32">
-        <span className="label-md text-primary font-bold tracking-[0.2em] uppercase text-xs mb-4 block">Get in touch</span>
-        <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight text-on-surface max-w-2xl leading-[1.1]">
-          Trò chuyện cùng chúng tôi
-        </h1>
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-        {/* Left Column: Contact Form */}
-        <div className="lg:col-span-7 bg-surface-container-low p-8 md:p-12 rounded-xl">
-          <form className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Họ và tên</label>
-                <input className="w-full px-4 py-3 bg-surface-container-highest border-none rounded focus:ring-2 focus:ring-primary/20 transition-all outline-none" placeholder="Nguyễn Văn A" type="text" />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Email</label>
-                <input className="w-full px-4 py-3 bg-surface-container-highest border-none rounded focus:ring-2 focus:ring-primary/20 transition-all outline-none" placeholder="example@email.com" type="email" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Số điện thoại</label>
-              <input className="w-full px-4 py-3 bg-surface-container-highest border-none rounded focus:ring-2 focus:ring-primary/20 transition-all outline-none" placeholder="+84 000 000 000" type="tel" />
-            </div>
-            <div className="space-y-2">
-              <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Nội dung tin nhắn</label>
-              <textarea className="w-full px-4 py-3 bg-surface-container-highest border-none rounded focus:ring-2 focus:ring-primary/20 transition-all outline-none resize-none" placeholder="Bạn cần chúng tôi hỗ trợ điều gì?" rows={5}></textarea>
-            </div>
-            <button className="w-full md:w-auto px-12 py-4 bg-primary-container text-on-primary-container font-bold rounded-lg hover:brightness-110 transition-all scale-95 active:scale-90 shadow-lg shadow-primary-container/20" type="button">
-              Gửi yêu cầu
-            </button>
-          </form>
-        </div>
-        {/* Right Column: Info & Map */}
-        <div className="lg:col-span-5 space-y-8">
-          <div className="grid grid-cols-1 gap-4">
-            {/* Address Card */}
-            <div className="bg-surface-container-lowest p-6 rounded-lg flex items-start gap-4 transition-transform hover:-translate-y-1">
-              <div className="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center text-primary shrink-0">
-                <span className="material-symbols-outlined">location_on</span>
-              </div>
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-1">Địa chỉ</h4>
-                <p className="text-on-surface font-medium">123 Đường Tầm, Quận 1, TP. HCM</p>
-              </div>
-            </div>
-            {/* Phone Card */}
-            <div className="bg-surface-container-lowest p-6 rounded-lg flex items-start gap-4 transition-transform hover:-translate-y-1">
-              <div className="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center text-primary shrink-0">
-                <span className="material-symbols-outlined">call</span>
-              </div>
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-1">Hotline</h4>
-                <p className="text-on-surface font-medium">+84 123 456 789</p>
-              </div>
-            </div>
-            {/* Email Card */}
-            <div className="bg-surface-container-lowest p-6 rounded-lg flex items-start gap-4 transition-transform hover:-translate-y-1">
-              <div className="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center text-primary shrink-0">
-                <span className="material-symbols-outlined">mail</span>
-              </div>
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-1">Email</h4>
-                <p className="text-on-surface font-medium">info@hoangminh.com</p>
-              </div>
-            </div>
-          </div>
-          {/* Google Maps Placeholder */}
-          <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-sm group">
-            <img alt="Bản đồ vị trí khách sạn" className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDnYAcat1XxTgYx806oZSwsrrLVCTgBbiPYVvyyAo5tbjzwXRipYDgkN4b_-N8tU04t5QlZiIKNsozf6tMpaYdhKP29pQfqbA6bRg8cfvTRhpG6RljhPU3dbqp0t_psL4NA8EAtYPT5eZSZWcZTCHk2jp1fPAomzk8JE-X9-glJMg6xanW6u9ikKUep6FrA-PEQjQTutjbBaI0uaFZXCPMf-p0j9fPUqhXJKQ-dbwa_hGUCFwnboJ0Hx1eWgl4vhhMuACe3zRZm7035" />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-              <div className="bg-white/90 backdrop-blur-md px-6 py-3 rounded-full flex items-center gap-2 shadow-xl">
-                <span className="material-symbols-outlined text-primary">map</span>
-                <span className="text-sm font-bold text-on-surface">Mở Bản đồ</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* FAQ Section */}
-      <section className="mt-32 max-w-3xl mx-auto">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-extrabold text-on-surface mb-2">Câu hỏi thường gặp</h2>
-          <div className="h-1 w-20 bg-primary mx-auto rounded-full"></div>
-        </div>
-        <div className="space-y-4">
-          {/* Accordion Item 1 */}
-          <details className="group bg-surface-container-low rounded-xl overflow-hidden [&_summary::-webkit-details-marker]:hidden" open>
-            <summary className="flex items-center justify-between p-6 cursor-pointer hover:bg-surface-container transition-colors">
-              <h3 className="font-bold text-on-surface">Giờ nhận phòng và trả phòng là khi nào?</h3>
-              <span className="material-symbols-outlined transition-transform duration-300 group-open:rotate-180">expand_more</span>
-            </summary>
-            <div className="px-6 pb-6 text-on-surface-variant leading-relaxed">
-              Thời gian nhận phòng tiêu chuẩn là từ 14:00 và thời gian trả phòng là trước 12:00 trưa. Nếu quý khách có nhu cầu nhận phòng sớm hoặc trả phòng muộn, vui lòng liên hệ trước với chúng tôi để được hỗ trợ tốt nhất tùy theo tình trạng phòng trống.
-            </div>
-          </details>
-          {/* Accordion Item 2 */}
-          <details className="group bg-surface-container-low rounded-xl overflow-hidden [&_summary::-webkit-details-marker]:hidden">
-            <summary className="flex items-center justify-between p-6 cursor-pointer hover:bg-surface-container transition-colors">
-              <h3 className="font-bold text-on-surface">Khách sạn có dịch vụ đưa đón sân bay không?</h3>
-              <span className="material-symbols-outlined transition-transform duration-300 group-open:rotate-180">expand_more</span>
-            </summary>
-            <div className="px-6 pb-6 text-on-surface-variant leading-relaxed">
-              Có, chúng tôi cung cấp dịch vụ đưa đón sân bay 24/7 với đa dạng các dòng xe từ 4 đến 16 chỗ. Quý khách vui lòng cung cấp thông tin chuyến bay ít nhất 24 giờ trước khi đến để chúng tôi sắp xếp chu đáo.
-            </div>
-          </details>
-          {/* Accordion Item 3 */}
-          <details className="group bg-surface-container-low rounded-xl overflow-hidden [&_summary::-webkit-details-marker]:hidden">
-            <summary className="flex items-center justify-between p-6 cursor-pointer hover:bg-surface-container transition-colors">
-              <h3 className="font-bold text-on-surface">Chính sách hủy phòng như thế nào?</h3>
-              <span className="material-symbols-outlined transition-transform duration-300 group-open:rotate-180">expand_more</span>
-            </summary>
-            <div className="px-6 pb-6 text-on-surface-variant leading-relaxed">
-              Chính sách hủy phòng phụ thuộc vào loại giá phòng quý khách đã đặt. Thông thường, quý khách có thể hủy miễn phí trước 48 giờ tính từ ngày nhận phòng. Các yêu cầu hủy sau thời gian này có thể phát sinh phí tương đương với giá đêm đầu tiên.
-            </div>
-          </details>
+    <>
+      {/* ── HERO ── */}
+      <section className="relative min-h-[45vh] flex items-end pb-16 overflow-hidden bg-[#1A1A1A]">
+        <img
+          alt="Hotel lobby contact"
+          src="https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1920&q=85"
+          className="absolute inset-0 w-full h-full object-cover opacity-35"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#1A1A1A] via-[#1A1A1A]/40 to-transparent" />
+        <div className="relative z-10 max-w-7xl mx-auto px-8 w-full">
+          <span className="block text-[10px] uppercase tracking-[0.4em] text-[#C8A97E] font-medium mb-3">
+            Chúng tôi lắng nghe
+          </span>
+          <h1 className="text-5xl md:text-7xl font-light text-white leading-[1.05]" style={SERIF}>
+            Trò chuyện<br />
+            <em className="italic">cùng chúng tôi</em>
+          </h1>
         </div>
       </section>
-    </main>
+
+      {/* ── MAIN CONTENT ── */}
+      <main className="bg-[#F8F6F3] pb-24">
+        <div className="max-w-7xl mx-auto px-8 py-16">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+
+            {/* LEFT: Contact Form */}
+            <div className="lg:col-span-7">
+              <div className="bg-white border border-stone-100 shadow-sm p-10">
+                <h2 className="text-2xl font-light text-stone-900 mb-1" style={SERIF}>
+                  Gửi yêu cầu
+                </h2>
+                <div className="w-8 h-[1px] bg-[#C8A97E] mb-8" />
+
+                <form className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {[
+                      { label: "Họ và tên", placeholder: "Nguyễn Văn A", type: "text" },
+                      { label: "Email", placeholder: "example@email.com", type: "email" },
+                    ].map(({ label, placeholder, type }) => (
+                      <div key={label} className="space-y-2">
+                        <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A97E]">
+                          {label}
+                        </label>
+                        <input
+                          className="w-full px-4 py-3 bg-[#F8F6F3] border border-stone-200 focus:border-[#C8A97E]/60 focus:ring-0 focus:outline-none text-sm text-stone-700 transition-colors"
+                          placeholder={placeholder}
+                          type={type}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A97E]">
+                      Số điện thoại
+                    </label>
+                    <input
+                      className="w-full px-4 py-3 bg-[#F8F6F3] border border-stone-200 focus:border-[#C8A97E]/60 focus:ring-0 focus:outline-none text-sm text-stone-700 transition-colors"
+                      placeholder="+84 000 000 000"
+                      type="tel"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A97E]">
+                      Nội dung tin nhắn
+                    </label>
+                    <textarea
+                      className="w-full px-4 py-3 bg-[#F8F6F3] border border-stone-200 focus:border-[#C8A97E]/60 focus:ring-0 focus:outline-none text-sm text-stone-700 transition-colors resize-none"
+                      placeholder="Bạn cần chúng tôi hỗ trợ điều gì?"
+                      rows={5}
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    className="px-10 py-3.5 bg-[#C8A97E] hover:bg-[#b5956a] text-white text-xs font-medium uppercase tracking-[0.2em] transition-all duration-300 hover:shadow-md"
+                  >
+                    Gửi yêu cầu
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            {/* RIGHT: Info */}
+            <div className="lg:col-span-5 space-y-6">
+              {/* Contact cards */}
+              {[
+                { icon: "location_on", title: "Địa chỉ", value: "123 Đường ABC, Quận 1, TP. HCM" },
+                { icon: "call", title: "Hotline", value: "+84 123 456 789" },
+                { icon: "mail", title: "Email", value: "info@hoangminh.com" },
+                { icon: "schedule", title: "Lễ tân", value: "Phục vụ 24/7, 365 ngày" },
+              ].map(({ icon, title, value }) => (
+                <div
+                  key={icon}
+                  className="bg-white border border-stone-100 p-6 flex items-start gap-5 hover:border-[#C8A97E]/30 transition-colors duration-300 group"
+                >
+                  <div className="w-11 h-11 border border-[#C8A97E]/30 group-hover:border-[#C8A97E] flex items-center justify-center flex-shrink-0 transition-colors duration-300">
+                    <span className="material-symbols-outlined text-[#C8A97E] text-xl">{icon}</span>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-stone-400 mb-1">
+                      {title}
+                    </p>
+                    <p className="text-stone-800 font-medium text-sm">{value}</p>
+                  </div>
+                </div>
+              ))}
+
+              {/* Map placeholder */}
+              <div className="relative w-full aspect-video overflow-hidden shadow-sm group border border-stone-100">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  alt="Bản đồ vị trí khách sạn"
+                  className="w-full h-full object-cover grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700"
+                  src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=800&q=80"
+                />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="bg-white/90 backdrop-blur-md px-5 py-2.5 flex items-center gap-2 shadow-lg border border-stone-100">
+                    <span className="material-symbols-outlined text-[#C8A97E] text-lg">map</span>
+                    <span className="text-sm font-medium text-stone-800">Mở Bản đồ</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── FAQ ── */}
+        <section className="max-w-3xl mx-auto px-8">
+          <div className="text-center mb-12">
+            <span className="text-[10px] uppercase tracking-[0.3em] text-[#C8A97E] font-medium block mb-3">
+              Hỗ trợ nhanh
+            </span>
+            <h2 className="text-3xl font-light text-stone-900" style={SERIF}>
+              Câu hỏi thường gặp
+            </h2>
+            <div className="w-8 h-[1px] bg-[#C8A97E] mx-auto mt-4" />
+          </div>
+
+          <div className="space-y-3">
+            {FAQS.map(({ q, a, open }) => (
+              <details
+                key={q}
+                className="group bg-white border border-stone-100 overflow-hidden [&_summary::-webkit-details-marker]:hidden hover:border-[#C8A97E]/20 transition-colors"
+                open={open}
+              >
+                <summary className="flex items-center justify-between p-6 cursor-pointer hover:bg-[#C8A97E]/3 transition-colors">
+                  <h3 className="font-medium text-stone-800 text-sm pr-4">{q}</h3>
+                  <span className="material-symbols-outlined text-[#C8A97E] flex-shrink-0 transition-transform duration-300 group-open:rotate-180">
+                    expand_more
+                  </span>
+                </summary>
+                <div className="px-6 pb-6 text-stone-500 text-sm leading-relaxed border-t border-stone-100">
+                  <div className="pt-4">{a}</div>
+                </div>
+              </details>
+            ))}
+          </div>
+        </section>
+      </main>
+    </>
   );
 }
