@@ -87,6 +87,31 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
             formatContent(message.content)
           )}
         </div>
+
+        {message.actions && message.actions.length > 0 && (
+          <div className="flex flex-col gap-2 mt-2">
+            {message.actions.map((act, index) => (
+              <a
+                key={index}
+                href={act.url}
+                className="text-xs px-4 py-2 rounded-xl text-center font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                style={{
+                  background: act.primary 
+                    ? 'linear-gradient(135deg, #b8860b, #ffd700)' 
+                    : 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(184,134,11,0.3)',
+                  color: act.primary ? '#0d0800' : '#ffd700',
+                  display: 'block',
+                  width: '100%',
+                  textDecoration: 'none',
+                }}
+              >
+                {act.label}
+              </a>
+            ))}
+          </div>
+        )}
+
         <span className="text-xs opacity-40 ml-1" style={{ color: '#b8860b' }}>
           {timeStr}
         </span>

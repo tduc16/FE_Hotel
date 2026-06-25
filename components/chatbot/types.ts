@@ -4,12 +4,18 @@ export type ChatIntent =
   | 'ROOM_PRICE'
   | 'ROOM_RECOMMENDATION'
   | 'SERVICE_RECOMMENDATION'
-  | 'BOOK_ROOM'
+  | 'BOOKING_CONSULTATION'
   | 'BOOKING_LOOKUP'
-  | 'BOOKING_CANCEL'
+  | 'BOOKING_GUIDANCE'
   | 'HOTEL_INFORMATION'
   | 'CONTACT_SUPPORT'
   | 'GENERAL_CHAT';
+
+export interface ChatAction {
+  label: string;
+  url: string;
+  primary?: boolean;
+}
 
 export interface ChatMessage {
   id: string;
@@ -18,6 +24,7 @@ export interface ChatMessage {
   intent?: ChatIntent;
   timestamp: Date;
   isError?: boolean;
+  actions?: ChatAction[];
 }
 
 export interface ChatbotResponse {
@@ -26,6 +33,7 @@ export interface ChatbotResponse {
   intent: ChatIntent;
   suggestions: string[];
   sessionId: string;
+  actions?: ChatAction[];
 }
 
 export interface QuickAction {
@@ -35,9 +43,9 @@ export interface QuickAction {
 }
 
 export const QUICK_ACTIONS: QuickAction[] = [
-  { icon: '🏨', label: 'Tìm phòng trống', message: 'Cho tôi xem các phòng trống hiện có' },
+  { icon: '✨', label: 'Tư vấn phòng phù hợp', message: 'Tôi muốn tư vấn phòng phù hợp' },
+  { icon: '🏨', label: 'Kiểm tra phòng trống', message: 'Tôi muốn kiểm tra phòng trống' },
   { icon: '💰', label: 'Xem giá phòng', message: 'Giá các loại phòng là bao nhiêu?' },
-  { icon: '✨', label: 'Gợi ý phòng phù hợp', message: 'Hãy gợi ý phòng phù hợp cho tôi' },
   { icon: '🎁', label: 'Dịch vụ khách sạn', message: 'Khách sạn có những dịch vụ gì?' },
   { icon: '📋', label: 'Tra cứu booking', message: 'Tôi muốn tra cứu booking của mình' },
   { icon: '☎', label: 'Liên hệ hỗ trợ', message: 'Tôi cần liên hệ với khách sạn' },

@@ -22,10 +22,6 @@ export const bookingService = {
     const token = getToken();
     const headers = { Authorization: `Bearer ${token}` };
 
-    console.log('[bookingService] Full Request URL:', url);
-    console.log('[bookingService] Current Token:', token ? `${token.substring(0, 20)}...` : 'NULL/UNDEFINED');
-    console.log('[bookingService] Request Headers:', headers);
-
     const res = await fetch(url, {
       cache: 'no-store',
       headers,
@@ -42,7 +38,6 @@ export const bookingService = {
     }
 
     const data = await res.json();
-    console.log('[bookingService] getBookings response:', data);
 
     // Support both { success, data, meta } từ admin API và plain array
     if (Array.isArray(data)) {
@@ -65,10 +60,6 @@ export const bookingService = {
     const url = `${baseUrl}/admin/bookings/${id}`;
     const token = getToken();
     const headers = { Authorization: `Bearer ${token}` };
-
-    console.log('[bookingService] GET Full Request URL:', url);
-    console.log('[bookingService] Current Token:', token ? `${token.substring(0, 20)}...` : 'NULL/UNDEFINED');
-    console.log('[bookingService] Request Headers:', headers);
 
     const res = await fetch(url, {
       cache: 'no-store',
@@ -178,11 +169,15 @@ export const bookingService = {
     console.log('[bookingService] POST Full Request URL:', url);
     console.log('[bookingService] Request Body payload:', JSON.stringify(data, null, 2));
 
+    const customerToken = typeof window !== 'undefined' ? localStorage.getItem('customer_access_token') : null;
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}),
+    };
+
     const res = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(data),
     });
 
@@ -218,15 +213,107 @@ export const bookingService = {
 
     return resData;
   },
+
+  async validateVoucher(code: string, totalAmount: number, customerId?: string, guestEmail?: string): Promise<any> {
+    const url = `${baseUrl.replace(/\/admin$/, '')}/vouchers/validate`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code, totalAmount, customerId, guestEmail }),
+    });
+    if (!res.ok) {
+      let msg = 'Không thể kiểm tra mã giảm giá';
+      try {
+        const err = await res.json();
+        msg = err.message || msg;
+      } catch { /* ignore */ }
+      return { valid: false, message: msg };
+    }
+    return res.json();
+  },
+
+  /**
+   * Kiểm tra phòng trống (public API — không cần auth)
+   * Sử dụng ở trang booking trước khi submit.
+   */
+  async checkAvailability(params: {
+    categoryId: string;
+    checkIn: string;
+    checkOut: string;
+    guestCount?: number;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      available: boolean;
+      availableRoomCount: number;
+      categoryName: string;
+      pricePerNight: number;
+      capacity: number;
+      nightCount: number;
+      subtotal: number;
+    };
+    message?: string;
+  }> {
+    const queryParams = new URLSearchParams();
+    queryParams.set('categoryId', params.categoryId);
+    queryParams.set('checkIn', params.checkIn);
+    queryParams.set('checkOut', params.checkOut);
+    if (params.guestCount !== undefined) {
+      queryParams.set('guestCount', String(params.guestCount));
+    }
+
+    const url = `${baseUrl}/public/bookings/availability?${queryParams.toString()}`;
+    const res = await fetch(url, { cache: 'no-store' });
+
+    if (!res.ok) {
+      let msg = 'Lỗi kiểm tra phòng trống';
+      try {
+        const err = await res.json();
+        msg = err.message || msg;
+      } catch { /* ignore */ }
+      return { success: false, message: msg };
+    }
+
+    const data = await res.json();
+    return { success: true, data: data.data || data };
+  },
+
+  /**
+   * Cập nhật trạng thái thanh toán của booking (admin only)
+   */
+  async updatePaymentStatus(
+    id: string,
+    paymentStatus: 'UNPAID' | 'PAID' | 'REFUNDED' | 'FAILED',
+    note?: string,
+  ): Promise<{ success: boolean; data?: any; message?: string }> {
+    const url = `${baseUrl}/admin/bookings/${id}/payment`;
+    const token = getToken();
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ paymentStatus, note }),
+    });
+
+    if (!res.ok) {
+      let msg = 'Không thể cập nhật trạng thái thanh toán';
+      try {
+        const err = await res.json();
+        msg = err.message || msg;
+      } catch { /* ignore */ }
+      return { success: false, message: msg };
+    }
+    const data = await res.json();
+    return { success: true, data: data.data, message: data.message };
+  },
 };
 
 // Helper – reads JWT từ localStorage (client-side only)
-// Key phải khớp với auth.service.ts: 'access_token'
 function getToken(): string {
   if (typeof window === 'undefined') return '';
-  const token = localStorage.getItem('admin_access_token') ?? '';
-  if (!token) {
-    console.warn('[bookingService] ⚠️ Không tìm thấy admin_access_token trong localStorage');
-  }
-  return token;
+  return localStorage.getItem('admin_access_token') ?? '';
 }

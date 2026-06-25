@@ -88,6 +88,13 @@ function BookingContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Availability states
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+  const [availabilityData, setAvailabilityData] = useState<{
+    available: boolean;
+    availableRoomCount: number;
+  } | null>(null);
+
   // Fetch room data
   useEffect(() => {
     async function loadRoom() {
@@ -160,6 +167,63 @@ function BookingContent() {
       }
     }
   }, [roomData, formData.guests]);
+
+  // Check availability on checkIn/checkOut/guests change
+  useEffect(() => {
+    let active = true;
+
+    async function checkRoomAvailability() {
+      if (!roomId || !formData.checkIn || !formData.checkOut) {
+        setAvailabilityData(null);
+        return;
+      }
+
+      const [inYear, inMonth, inDay] = formData.checkIn.split('-').map(Number);
+      const [outYear, outMonth, outDay] = formData.checkOut.split('-').map(Number);
+      const checkInDate = new Date(inYear, inMonth - 1, inDay);
+      const checkOutDate = new Date(outYear, outMonth - 1, outDay);
+
+      if (checkOutDate <= checkInDate) {
+        setAvailabilityData(null);
+        return;
+      }
+
+      setIsCheckingAvailability(true);
+      try {
+        const guestCount = parseInt(formData.guests, 10);
+        const res = await bookingService.checkAvailability({
+          categoryId: roomId,
+          checkIn: formData.checkIn,
+          checkOut: formData.checkOut,
+          guestCount: isNaN(guestCount) ? 1 : guestCount,
+        });
+
+        if (active && res.success && res.data) {
+          setAvailabilityData({
+            available: res.data.available,
+            availableRoomCount: res.data.availableRoomCount,
+          });
+        } else if (active) {
+          setAvailabilityData(null);
+        }
+      } catch (error) {
+        console.error("Lỗi check availability:", error);
+        if (active) {
+          setAvailabilityData(null);
+        }
+      } finally {
+        if (active) {
+          setIsCheckingAvailability(false);
+        }
+      }
+    }
+
+    checkRoomAvailability();
+
+    return () => {
+      active = false;
+    };
+  }, [formData.checkIn, formData.checkOut, formData.guests, roomId]);
 
   // Helper để lấy ngày hôm nay theo YYYY-MM-DD local
   const getTodayStr = () => {
@@ -236,6 +300,59 @@ function BookingContent() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Voucher states
+  const [voucherCodeInput, setVoucherCodeInput] = useState("");
+  const [appliedVoucher, setAppliedVoucher] = useState<any | null>(null);
+  const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
+
+  // Reset voucher khi số đêm hoặc thông tin khách hàng đổi
+  useEffect(() => {
+    setAppliedVoucher(null);
+  }, [nights, formData.email]);
+
+  const handleApplyVoucher = async () => {
+    if (!voucherCodeInput.trim()) {
+      toast.error("Vui lòng nhập mã giảm giá");
+      return;
+    }
+    if (!roomData || nights === 0) {
+      toast.error("Vui lòng chọn ngày nhận/trả phòng trước khi áp dụng voucher");
+      return;
+    }
+
+    setIsValidatingVoucher(true);
+    try {
+      const basePrice = roomData.base_price || 0;
+      const totalAmount = nights * basePrice;
+      const guestEmail = formData.email;
+      const customerId = customer?.id || undefined;
+
+      const result = await bookingService.validateVoucher(
+        voucherCodeInput.toUpperCase().trim(),
+        totalAmount,
+        customerId,
+        guestEmail || undefined
+      );
+
+      if (result.valid) {
+        setAppliedVoucher({
+          code: result.code,
+          discountAmount: Number(result.discountAmount),
+          finalAmount: Number(result.finalAmount),
+        });
+        toast.success("Áp dụng mã giảm giá thành công!");
+      } else {
+        setAppliedVoucher(null);
+        toast.error(result.message || "Mã giảm giá không hợp lệ hoặc không đủ điều kiện");
+      }
+    } catch (err: any) {
+      setAppliedVoucher(null);
+      toast.error(err.message || "Lỗi khi kiểm tra mã giảm giá");
+    } finally {
+      setIsValidatingVoucher(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -259,6 +376,7 @@ function BookingContent() {
         check_out_date: formData.checkOut,
         guest_count: parseInt(formData.guests),
         payment_method: pm,
+        voucherCode: appliedVoucher ? appliedVoucher.code : undefined,
         ...(customer?.id ? { customerId: customer.id } : {}),
       });
 
@@ -335,7 +453,7 @@ function BookingContent() {
 
       <div className="mb-12 border-b border-stone-200/60 pb-6">
         <span className="text-[10px] uppercase tracking-[0.35em] text-[#C8A97E] font-medium block mb-2">
-          Đăng ký kỳ nghỉ
+          Đăng ký phòng
         </span>
         <h1 className="text-4xl font-light text-stone-900 tracking-tight" style={SERIF}>
           Xác nhận đặt phòng
@@ -473,6 +591,31 @@ function BookingContent() {
                   className="w-full bg-[#F8F6F3] border border-stone-200 py-3 px-4 text-sm focus:border-[#C8A97E]/60 focus:ring-0 focus:outline-none resize-none transition-colors"
                 ></textarea>
               </div>
+
+              {/* Availability Status */}
+              {formData.checkIn && formData.checkOut && !errors.checkOut && (
+                <div className="md:col-span-2 pt-4 border-t border-stone-100 flex items-center justify-between">
+                  <span className="text-xs uppercase tracking-wider text-stone-400 font-semibold">Tình trạng phòng</span>
+                  {isCheckingAvailability ? (
+                    <span className="flex items-center gap-1.5 text-xs text-stone-500">
+                      <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                      Đang kiểm tra phòng trống...
+                    </span>
+                  ) : availabilityData ? (
+                    availabilityData.available ? (
+                      <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-1.5 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm">check_circle</span>
+                        Còn phòng trống ({availabilityData.availableRoomCount} phòng khả dụng)
+                      </span>
+                    ) : (
+                      <span className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 px-3 py-1.5 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm">cancel</span>
+                        Đã hết phòng trong khoảng thời gian này
+                      </span>
+                    )
+                  ) : null}
+                </div>
+              )}
             </div>
           </div>
 
@@ -586,10 +729,64 @@ function BookingContent() {
                 </div>
               </div>
 
-              <div className="flex justify-between items-end pb-2">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-400">Tổng tiền</span>
-                <span className="text-2xl font-semibold text-[#C8A97E]">{formatCurrency(nights * roomData.base_price)}</span>
+              {/* Voucher Section */}
+              <div className="border-t border-stone-100 pt-4 space-y-2.5">
+                <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A97E]">Mã khuyến mãi</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="NHẬP MÃ GIẢM GIÁ"
+                    value={voucherCodeInput}
+                    onChange={(e) => setVoucherCodeInput(e.target.value)}
+                    className="flex-1 bg-[#F8F6F3] border border-stone-200 py-2 px-3 text-xs focus:border-[#C8A97E]/60 focus:ring-0 focus:outline-none uppercase font-bold tracking-wider"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyVoucher}
+                    disabled={isValidatingVoucher || !voucherCodeInput.trim() || nights === 0}
+                    className="bg-[#1A1A1A] hover:bg-[#333] text-white px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all disabled:opacity-50"
+                  >
+                    {isValidatingVoucher ? "..." : "Áp dụng"}
+                  </button>
+                </div>
+                {appliedVoucher && (
+                  <div className="flex items-center justify-between text-xs bg-emerald-50 text-emerald-800 p-2.5 border border-emerald-100 font-medium">
+                    <span>Áp dụng thành công: <strong className="text-emerald-700">{appliedVoucher.code}</strong></span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAppliedVoucher(null);
+                        setVoucherCodeInput("");
+                      }}
+                      className="text-emerald-700 hover:text-emerald-900 font-bold ml-2"
+                    >
+                      Bỏ áp dụng
+                    </button>
+                  </div>
+                )}
               </div>
+
+              {appliedVoucher ? (
+                <div className="border-t border-stone-100 pt-4 space-y-3">
+                  <div className="flex justify-between items-center text-xs uppercase tracking-wider">
+                    <span className="text-stone-400">Tạm tính</span>
+                    <span className="font-semibold text-stone-800">{formatCurrency(nights * roomData.base_price)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs uppercase tracking-wider">
+                    <span className="text-stone-400">Giảm giá</span>
+                    <span className="font-bold text-emerald-600">-{formatCurrency(appliedVoucher.discountAmount)}</span>
+                  </div>
+                  <div className="flex justify-between items-end pb-2 border-t border-stone-50 pt-3">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-400">Tổng thanh toán</span>
+                    <span className="text-2xl font-semibold text-[#C8A97E]">{formatCurrency(appliedVoucher.finalAmount)}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-between items-end pb-2 border-t border-stone-100 pt-4">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-400">Tổng tiền</span>
+                  <span className="text-2xl font-semibold text-[#C8A97E]">{formatCurrency(nights * roomData.base_price)}</span>
+                </div>
+              )}
 
               <div className="pt-2 border-t border-stone-50">
                 <label className="flex items-start gap-3 cursor-pointer p-1">
@@ -616,7 +813,13 @@ function BookingContent() {
 
               <button
                 type="submit"
-                disabled={isSubmitting || nights === 0 || !!errors.checkOut || !!errors.checkIn}
+                disabled={
+                  isSubmitting ||
+                  nights === 0 ||
+                  !!errors.checkOut ||
+                  !!errors.checkIn ||
+                  (availabilityData !== null && !availabilityData.available)
+                }
                 className="w-full bg-[#C8A97E] hover:bg-[#b5956a] text-white h-12 text-xs font-medium uppercase tracking-[0.2em] flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (

@@ -11,6 +11,30 @@ const getAuthHeaders = (): HeadersInit => {
   };
 };
 
+const mapServiceFields = (item: any): HotelService => {
+  if (!item) return {} as HotelService;
+  return {
+    id: item.id,
+    name: item.name,
+    slug: item.slug,
+    shortDescription: item.shortDescription ?? item.short_description ?? null,
+    description: item.description ?? null,
+    imageUrl: item.imageUrl ?? item.image_url ?? null,
+    icon: item.icon ?? null,
+    openTime: item.openTime ?? item.open_time ?? null,
+    closeTime: item.closeTime ?? item.close_time ?? null,
+    location: item.location ?? null,
+    isActive: item.isActive ?? item.is_active ?? false,
+    createdAt: item.createdAt ?? item.created_at ?? '',
+    updatedAt: item.updatedAt ?? item.updated_at ?? '',
+  };
+};
+
+const normalizeServices = (json: any): HotelService[] => {
+  const data = Array.isArray(json) ? json : json?.data ?? [];
+  return data.map(mapServiceFields);
+};
+
 export const hotelServiceApi = {
   // ==========================================
   // PUBLIC APIs
@@ -18,26 +42,47 @@ export const hotelServiceApi = {
 
   async getServices(): Promise<HotelService[]> {
     const url = `${baseUrl}/services`;
-    const res = await fetch(url, { cache: 'no-store' });
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
 
-    if (!res.ok) {
-      throw new Error(`Failed to fetch services: HTTP ${res.status}`);
+      if (!res.ok) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error(`[API Error] Failed to fetch services. URL: ${url}, Status: ${res.status}`);
+        }
+        throw new Error(`Failed to fetch services: HTTP ${res.status}`);
+      }
+
+      const json = await res.json();
+      return normalizeServices(json);
+    } catch (err: any) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error(`[API Error] Failed to fetch services. URL: ${url}, Error: ${err.message || err}`);
+      }
+      throw err;
     }
-
-    const data = await res.json();
-    return data?.data || [];
   },
 
   async getServiceBySlug(slug: string): Promise<HotelService> {
     const url = `${baseUrl}/services/${slug}`;
-    const res = await fetch(url, { cache: 'no-store' });
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
 
-    if (!res.ok) {
-      throw new Error(`Failed to fetch service detail: HTTP ${res.status}`);
+      if (!res.ok) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error(`[API Error] Failed to fetch service detail. URL: ${url}, Status: ${res.status}`);
+        }
+        throw new Error(`Failed to fetch service detail: HTTP ${res.status}`);
+      }
+
+      const json = await res.json();
+      const item = json && typeof json === 'object' && 'data' in json ? json.data : json;
+      return mapServiceFields(item);
+    } catch (err: any) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error(`[API Error] Failed to fetch service detail. URL: ${url}, Error: ${err.message || err}`);
+      }
+      throw err;
     }
-
-    const data = await res.json();
-    return data?.data;
   },
 
   // ==========================================

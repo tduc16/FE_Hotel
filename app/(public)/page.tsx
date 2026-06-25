@@ -1,8 +1,101 @@
 import Link from "next/link";
+import RoomCard from "@/components/rooms/RoomCard";
+import { roomService } from "@/services/room.service";
+import { hotelServiceApi } from "@/services/hotel-service.service";
+import { RoomCategory } from "@/types/room";
+import { HotelService } from "@/types/services";
+
+// Luôn render dynamic (SSR) vì trang fetch dữ liệu realtime từ API
+export const dynamic = "force-dynamic";
 
 const SERIF = { fontFamily: "var(--font-cormorant), Georgia, serif" };
 
-export default function Home() {
+// ──────────────────────────────────────────────
+// Helper: build image URL for service images
+// ──────────────────────────────────────────────
+const BACKEND_URL =
+  (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api").replace(
+    /\/api$/,
+    ""
+  );
+
+function buildServiceImageUrl(url: string | null): string | null {
+  if (!url || url.trim() === "") return null;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  return `${BACKEND_URL}${url.startsWith("/") ? url : `/${url}`}`;
+}
+
+// ──────────────────────────────────────────────
+// Data fetching helpers with error handling
+// ──────────────────────────────────────────────
+async function fetchRooms(): Promise<{ data: RoomCategory[]; error: string | null }> {
+  try {
+    const rooms = await roomService.getCategories();
+    // Chỉ hiển thị phòng đang hoạt động
+    const activeRooms = rooms.filter((r) => r.is_active !== false);
+    return { data: activeRooms.slice(0, 3), error: null };
+  } catch (err) {
+    console.error("[Home] fetchRooms error:", err);
+    return { data: [], error: "Không thể tải danh sách phòng." };
+  }
+}
+
+async function fetchServices(): Promise<{ data: HotelService[]; error: string | null }> {
+  try {
+    const services = await hotelServiceApi.getServices();
+    // Chỉ hiển thị dịch vụ đang hoạt động
+    const active = Array.isArray(services)
+      ? services.filter((s) => s.isActive !== false)
+      : [];
+    return { data: active.slice(0, 5), error: null };
+  } catch (err) {
+    console.error("[Home] fetchServices error:", err);
+    return { data: [], error: "Không thể tải danh sách dịch vụ." };
+  }
+}
+
+async function fetchFeaturedReviews(): Promise<any[]> {
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    const res = await fetch(`${apiUrl}/reviews?featured=true&limit=3`, { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.items || [];
+  } catch (err) {
+    console.error("[Home] fetchFeaturedReviews error:", err);
+    return [];
+  }
+}
+
+async function fetchReviewsSummary(): Promise<any> {
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    const res = await fetch(`${apiUrl}/reviews/summary`, { cache: 'no-store' });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.data || null;
+  } catch (err) {
+    console.error("[Home] fetchReviewsSummary error:", err);
+    return null;
+  }
+}
+
+// ──────────────────────────────────────────────
+// Page Component (Server Component — async)
+// ──────────────────────────────────────────────
+export default async function Home() {
+  const [roomsResult, servicesResult, featuredReviews, reviewsSummary] = await Promise.all([
+    fetchRooms(),
+    fetchServices(),
+    fetchFeaturedReviews(),
+    fetchReviewsSummary(),
+  ]);
+
+  const rooms = roomsResult.data;
+  const roomsError = roomsResult.error;
+  const services = servicesResult.data;
+  const servicesError = servicesResult.error;
+
   return (
     <>
       {/* ──────── HERO ──────── */}
@@ -25,8 +118,7 @@ export default function Home() {
             className="text-5xl md:text-8xl font-light text-white mb-6 leading-[1.05]"
             style={SERIF}
           >
-            Hoang Minh<br />
-            <em className="italic">Resort &amp; Hotel</em>
+            Hoàng Minh Hotel<br />
           </h1>
           <div className="w-16 h-[1px] bg-[#C8A97E] mx-auto mb-6" />
           <p className="text-base md:text-xl text-white/70 font-light leading-relaxed max-w-2xl mx-auto mb-10">
@@ -109,6 +201,7 @@ export default function Home() {
       </section>
 
       {/* ──────── ROOMS PREVIEW ──────── */}
+      {/* Data source: GET /api/rooms/categories — only active categories, max 3 */}
       <section className="py-28 max-w-7xl mx-auto px-6">
         <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
           <div>
@@ -127,86 +220,34 @@ export default function Home() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {[
-            {
-              name: "Phòng Deluxe Giường Đôi",
-              price: "850.000",
-              tag: "Phổ biến",
-              amenities: ["wifi", "ac_unit", "visibility"],
-              amenityLabels: ["Wifi", "Máy lạnh", "View đẹp"],
-              img: "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=800&q=80",
-            },
-            {
-              name: "Suite Cao Cấp Ban Công",
-              price: "1.250.000",
-              tag: "Ưu đãi",
-              amenities: ["wifi", "ac_unit", "deck"],
-              amenityLabels: ["Wifi", "Máy lạnh", "Ban công"],
-              img: "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80",
-            },
-            {
-              name: "Phòng Twin Tiêu Chuẩn",
-              price: "700.000",
-              tag: null,
-              amenities: ["wifi", "ac_unit", "tv"],
-              amenityLabels: ["Wifi", "Máy lạnh", "Smart TV"],
-              img: "https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=800&q=80",
-            },
-          ].map((room) => (
-            <div
-              key={room.name}
-              className="group bg-white overflow-hidden shadow-md hover:shadow-2xl hover:shadow-stone-300/50 transition-all duration-500 hover:-translate-y-1"
-            >
-              <div className="aspect-[4/3] overflow-hidden relative bg-stone-100">
-                <img
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  alt={room.name}
-                  src={room.img}
-                />
-                {room.tag && (
-                  <div className="absolute top-4 right-4 bg-[#C8A97E] text-white px-3 py-1 text-[10px] font-semibold uppercase tracking-widest">
-                    {room.tag}
-                  </div>
-                )}
-              </div>
-              <div className="p-7">
-                <h3 className="text-xl font-light text-stone-900 mb-3 line-clamp-1" style={SERIF}>
-                  {room.name}
-                </h3>
-                <div className="flex items-baseline gap-1 mb-5">
-                  <span className="text-2xl font-semibold text-[#C8A97E]">{room.price}đ</span>
-                  <span className="text-stone-400 text-xs">/ đêm</span>
-                </div>
-                <div className="flex gap-4 mb-6">
-                  {room.amenities.map((icon, i) => (
-                    <div key={icon} className="flex items-center gap-1.5 text-stone-500">
-                      <span className="material-symbols-outlined text-[16px] text-[#C8A97E]">{icon}</span>
-                      <span className="text-xs">{room.amenityLabels[i]}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-2 gap-3 pt-4 border-t border-stone-100">
-                  <Link
-                    href="/rooms"
-                    className="py-2.5 text-center border border-stone-200 hover:border-[#C8A97E] text-stone-600 hover:text-[#C8A97E] text-xs font-medium uppercase tracking-wider transition-all duration-300"
-                  >
-                    Xem chi tiết
-                  </Link>
-                  <Link
-                    href="/booking"
-                    className="py-2.5 text-center bg-[#C8A97E] hover:bg-[#b5956a] text-white text-xs font-medium uppercase tracking-wider transition-all duration-300"
-                  >
-                    Đặt phòng
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        {/* Error state */}
+        {roomsError && (
+          <div className="flex items-center gap-3 px-6 py-4 bg-red-50 border border-red-100 text-red-600 text-sm rounded-sm mb-8">
+            <span className="material-symbols-outlined text-lg">error_outline</span>
+            {roomsError}
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!roomsError && rooms.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-center text-stone-400">
+            <span className="material-symbols-outlined text-5xl mb-4 text-stone-300">hotel</span>
+            <p className="text-sm">Hiện chưa có hạng phòng nào được hiển thị.</p>
+          </div>
+        )}
+
+        {/* Room grid */}
+        {rooms.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {rooms.map((room) => (
+              <RoomCard key={room.id} category={room} />
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* ──────── AMENITIES ──────── */}
+      {/* ──────── SERVICES / AMENITIES ──────── */}
+      {/* Data source: GET /api/services — only active services, max 5 */}
       <section className="py-24 bg-stone-900">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
@@ -214,33 +255,94 @@ export default function Home() {
               Đặc quyền thượng lưu
             </span>
             <h2 className="text-3xl md:text-4xl font-light text-white" style={SERIF}>
-              Dịch vụ &amp; Tiện nghi
+              Dịch vụ &amp; Tiện ích
             </h2>
             <div className="w-10 h-[1px] bg-[#C8A97E] mx-auto mt-4" />
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
-            {[
-              { icon: "wifi", label: "Free Wifi" },
-              { icon: "ac_unit", label: "Điều hoà" },
-              { icon: "smart_display", label: "Smart TV" },
-              { icon: "local_parking", label: "Bãi đỗ xe" },
-              { icon: "support_agent", label: "Lễ tân 24/7" },
-            ].map(({ icon, label }) => (
-              <div
-                key={icon}
-                className="group text-center p-8 border border-stone-700 hover:border-[#C8A97E]/60 transition-all duration-500 hover:bg-[#C8A97E]/5"
+
+          {/* Error state */}
+          {servicesError && (
+            <div className="flex items-center justify-center gap-3 px-6 py-4 bg-white/5 border border-white/10 text-stone-400 text-sm rounded-sm mb-8 max-w-md mx-auto">
+              <span className="material-symbols-outlined text-lg">error_outline</span>
+              {servicesError}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!servicesError && services.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-10 text-center text-stone-500">
+              <span className="material-symbols-outlined text-4xl mb-3 text-stone-600">room_service</span>
+              <p className="text-sm">Hiện chưa có dịch vụ nào được hiển thị.</p>
+            </div>
+          )}
+
+          {/* Services grid */}
+          {services.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+              {services.map((service) => {
+                const imgUrl = buildServiceImageUrl(service.imageUrl);
+                return (
+                  <div
+                    key={service.id}
+                    className="group text-center p-8 border border-stone-700 hover:border-[#C8A97E]/60 transition-all duration-500 hover:bg-[#C8A97E]/5"
+                  >
+                    <div className="w-14 h-14 border border-stone-700 group-hover:border-[#C8A97E]/50 flex items-center justify-center mx-auto mb-4 transition-all duration-500 overflow-hidden">
+                      {imgUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={imgUrl}
+                          alt={service.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : service.icon ? (
+                        <span className="material-symbols-outlined text-[#C8A97E]/70 group-hover:text-[#C8A97E] text-2xl transition-colors duration-300">
+                          {service.icon}
+                        </span>
+                      ) : (
+                        <span className="material-symbols-outlined text-[#C8A97E]/70 group-hover:text-[#C8A97E] text-2xl transition-colors duration-300">
+                          room_service
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs font-medium text-stone-400 group-hover:text-stone-200 uppercase tracking-wider transition-colors duration-300 line-clamp-2">
+                      {service.name}
+                    </p>
+                    {service.shortDescription && (
+                      <p className="text-[10px] text-stone-600 group-hover:text-stone-500 mt-1 leading-relaxed transition-colors duration-300 line-clamp-2">
+                        {service.shortDescription}
+                      </p>
+                    )}
+                    {(service.openTime || service.location) && (
+                      <div className="mt-2 space-y-0.5">
+                        {service.openTime && (
+                          <p className="text-[10px] text-stone-600">
+                            {service.openTime}
+                            {service.closeTime ? ` – ${service.closeTime}` : ""}
+                          </p>
+                        )}
+                        {service.location && (
+                          <p className="text-[10px] text-stone-600 italic">{service.location}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* View all link */}
+          {services.length > 0 && (
+            <div className="text-center mt-10">
+              <Link
+                href="/services"
+                className="inline-flex items-center gap-2 text-[#C8A97E] text-xs font-medium hover:gap-3 transition-all duration-300 uppercase tracking-wider"
               >
-                <div className="w-14 h-14 border border-stone-700 group-hover:border-[#C8A97E]/50 flex items-center justify-center mx-auto mb-4 transition-all duration-500">
-                  <span className="material-symbols-outlined text-[#C8A97E]/70 group-hover:text-[#C8A97E] text-2xl transition-colors duration-300">
-                    {icon}
-                  </span>
-                </div>
-                <p className="text-xs font-medium text-stone-500 group-hover:text-stone-300 uppercase tracking-wider transition-colors duration-300">
-                  {label}
-                </p>
-              </div>
-            ))}
-          </div>
+                Xem tất cả dịch vụ
+                <span className="material-symbols-outlined text-base">arrow_forward</span>
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 
@@ -254,56 +356,99 @@ export default function Home() {
             Đánh giá từ quý khách
           </h2>
           <div className="flex items-center justify-center gap-1 text-[#C8A97E]">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <span key={i} className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <span
+                key={i}
+                className="material-symbols-outlined text-xl"
+                style={{
+                  fontVariationSettings:
+                    i < Math.round(reviewsSummary?.averageRating || 5) ? "'FILL' 1" : "'FILL' 0",
+                }}
+              >
                 star
               </span>
             ))}
-            <span className="ml-2 text-sm text-stone-500 font-medium">4.9 / 5 dựa trên 500+ đánh giá</span>
+            <span className="ml-2 text-sm text-stone-500 font-medium">
+              {reviewsSummary
+                ? `${reviewsSummary.averageRating} / 5.0 dựa trên ${reviewsSummary.totalReviews} đánh giá`
+                : "4.9 / 5 dựa trên 500+ đánh giá"}
+            </span>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {[
-            {
-              name: "Nguyễn Minh Tuấn",
-              text: "Phòng ốc rất sạch sẽ, đầy đủ tiện nghi. Nhân viên phục vụ nhiệt tình và chuyên nghiệp. Vị trí ngay trung tâm rất tiện di chuyển.",
-              img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80",
-            },
-            {
-              name: "Lê Thị Mai",
-              text: "Giá cả cực kỳ hợp lý so với chất lượng phòng. Thủ tục check-in rất nhanh chóng, không phải chờ đợi lâu.",
-              img: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=100&q=80",
-            },
-            {
-              name: "Trần Văn Hoàng",
-              text: "View từ phòng nhìn ra thành phố rất đẹp, đặc biệt là vào buổi tối. Wifi mạnh, làm việc rất ổn. Sẽ còn quay lại!",
-              img: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=100&q=80",
-            },
-          ].map(({ name, text, img }) => (
-            <div key={name} className="bg-white p-8 border border-stone-100 shadow-sm hover:shadow-md transition-all duration-300 relative group">
-              <span
-                className="absolute top-6 right-6 text-6xl leading-none text-[#C8A97E]/10 select-none"
-                style={SERIF}
+
+        {featuredReviews.length === 0 ? (
+          <div className="text-center py-12 bg-white border border-stone-100 rounded-lg p-8 max-w-md mx-auto">
+            <span className="material-symbols-outlined text-4xl text-stone-300 mb-3 block">
+              chat_bubble_outline
+            </span>
+            <p className="text-sm text-stone-400">Chưa có đánh giá nổi bật nào.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {featuredReviews.map((review) => (
+              <div
+                key={review.id}
+                className="bg-white p-8 border border-stone-100 shadow-xs hover:shadow-md transition-all duration-300 relative group flex flex-col justify-between"
               >
-                &ldquo;
-              </span>
-              <div className="flex items-center gap-4 mb-5">
-                <img alt={name} className="w-11 h-11 rounded-full object-cover ring-2 ring-[#C8A97E]/20" src={img} />
+                <span
+                  className="absolute top-6 right-6 text-6xl leading-none text-[#C8A97E]/10 select-none"
+                  style={SERIF}
+                >
+                  &ldquo;
+                </span>
                 <div>
-                  <p className="font-semibold text-stone-800 text-sm">{name}</p>
-                  <div className="flex text-[#C8A97E]">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <span key={i} className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
-                        star
-                      </span>
-                    ))}
+                  <div className="flex items-center gap-4 mb-5">
+                    {review.customerAvatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        alt={review.customerName}
+                        className="w-11 h-11 rounded-full object-cover ring-2 ring-[#C8A97E]/20"
+                        src={review.customerAvatar}
+                      />
+                    ) : (
+                      <div className="w-11 h-11 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+                        {review.customerName[0]?.toUpperCase() || "K"}
+                      </div>
+                    )}
+                    <div>
+                      <p className="font-semibold text-stone-800 text-sm">{review.customerName}</p>
+                      {(review.roomCategoryName || review.stayPeriod) && (
+                        <p className="text-[11px] text-stone-400 mt-0.5">
+                          {review.roomCategoryName}{review.roomCategoryName && review.stayPeriod && ' · '}{review.stayPeriod}
+                        </p>
+                      )}
+                      <div className="flex text-[#C8A97E]">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <span
+                            key={i}
+                            className="material-symbols-outlined text-xs"
+                            style={{
+                              fontVariationSettings: i < review.rating ? "'FILL' 1" : "'FILL' 0",
+                            }}
+                          >
+                            star
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   </div>
+                  {review.title && (
+                    <p className="font-bold text-stone-850 text-sm mb-1.5">{review.title}</p>
+                  )}
+                  <p className="text-stone-500 italic leading-relaxed text-sm">
+                    &ldquo;{review.comment}&rdquo;
+                  </p>
                 </div>
+                {review.adminReply && (
+                  <div className="mt-4 pt-3 border-t border-stone-50 text-[11px] text-stone-600">
+                    <p className="font-bold text-primary mb-0.5">Khách sạn phản hồi:</p>
+                    <p className="italic leading-relaxed">&ldquo;{review.adminReply}&rdquo;</p>
+                  </div>
+                )}
               </div>
-              <p className="text-stone-500 italic leading-relaxed text-sm">&ldquo;{text}&rdquo;</p>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* ──────── CTA BANNER ──────── */}

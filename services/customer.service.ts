@@ -59,8 +59,8 @@ export const customerService = {
     return handleResponse(res);
   },
 
-  getVouchers: async (): Promise<CustomerVoucher[]> => {
-    const res = await fetch(`${API_BASE}/customer/vouchers`, {
+  getVouchers: async (): Promise<any[]> => {
+    const res = await fetch(`${API_BASE}/customers/me/vouchers`, {
       headers: getAuthHeaders(),
     });
     return handleResponse(res);

@@ -1,82 +1,184 @@
-import Link from "next/link";
+'use client';
 
-const SERIF = { fontFamily: "var(--font-cormorant), Georgia, serif" };
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { reviewService } from '@/services/review.service';
+import { roomService } from '@/services/room.service';
+import toast from 'react-hot-toast';
+import { Star, Calendar, MessageSquare, ArrowUpDown, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 
-const REVIEWS = [
-  {
-    id: 1,
-    name: "Nguyễn Minh Anh",
-    room: "Deluxe Room",
-    date: "Tháng 3, 2026",
-    stars: 5,
-    text: "Trải nghiệm tuyệt vời! Khách sạn có không gian rất yên tĩnh và sang trọng. Nhân viên phục vụ cực kỳ chu đáo, đặc biệt là dịch vụ phòng luôn sạch sẽ mỗi ngày. Tôi chắc chắn sẽ quay lại.",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=80&q=80",
-    helpful: 8,
-  },
-  {
-    id: 2,
-    name: "Lê Hoàng Nam",
-    room: "Suite Ocean View",
-    date: "Tháng 2, 2026",
-    stars: 5,
-    text: "Vị trí khách sạn rất thuận tiện để di chuyển. View từ phòng Suite nhìn ra biển thực sự là một \"tuyệt phẩm\". Đồ ăn sáng đa dạng và ngon miệng. Một nơi nghỉ dưỡng đúng nghĩa.",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=80&q=80",
-    helpful: 12,
-  },
-  {
-    id: 3,
-    name: "Trần Thị Thu",
-    room: "Family Room",
-    date: "Tháng 1, 2026",
-    stars: 5,
-    text: "Gia đình tôi đã có một kỳ nghỉ tết đáng nhớ tại đây. Các con tôi rất thích khu vực hồ bơi và khu vui chơi. Sự nồng hậu của đội ngũ nhân viên khiến chúng tôi cảm thấy như đang ở nhà.",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=80&q=80",
-    helpful: 0,
-  },
-  {
-    id: 4,
-    name: "Phạm Quốc Bảo",
-    room: "Standard King",
-    date: "Tháng 3, 2026",
-    stars: 5,
-    text: "Rất ấn tượng với thiết kế của khách sạn. Mọi góc nhỏ đều có thể chụp ảnh đẹp. Dịch vụ spa ở đây cũng rất chất lượng, giúp tôi thư giãn tuyệt đối sau chuyến bay dài.",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=80&q=80",
-    helpful: 5,
-  },
-  {
-    id: 5,
-    name: "Đỗ Mỹ Linh",
-    room: "Honeymoon Suite",
-    date: "Tháng 12, 2025",
-    stars: 5,
-    text: "Khách sạn đã chuẩn bị bất ngờ cho vợ chồng tôi nhân dịp trăng mật. Sự tinh tế này thực sự ghi điểm lớn. Phòng ốc cực kỳ sang chảnh và riêng tư. Cảm ơn Hoang Minh Hotel rất nhiều!",
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=80&q=80",
-    helpful: 21,
-  },
-  {
-    id: 6,
-    name: "Vũ Quang Huy",
-    room: "Deluxe Twin",
-    date: "Tháng 2, 2026",
-    stars: 4,
-    text: "Kỳ nghỉ rất hài lòng. Wifi ổn định giúp tôi có thể xử lý công việc từ xa hiệu quả. Các tiện ích khác đều đúng như mô tả trên website. Sẽ giới thiệu cho bạn bè.",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=80&q=80",
-    helpful: 0,
-  },
-];
+const SERIF = { fontFamily: 'var(--font-cormorant), Georgia, serif' };
 
-const CATEGORIES = [
-  { label: "Cleanliness", score: 4.9, pct: 98 },
-  { label: "Service", score: 5.0, pct: 100 },
-  { label: "Location", score: 4.7, pct: 94 },
-  { label: "Amenities", score: 4.8, pct: 96 },
-];
+interface SummaryData {
+  averageRating: number;
+  totalReviews: number;
+  ratingDistribution: {
+    five: number;
+    four: number;
+    three: number;
+    two: number;
+    one: number;
+  };
+  featuredCount: number;
+  categoryAverages: {
+    cleanliness: number;
+    service: number;
+    comfort: number;
+    location: number;
+    value: number;
+  };
+}
 
-export default function Reviews() {
+interface ReviewItem {
+  id: string;
+  customerName: string;
+  customerAvatar: string | null;
+  rating: number;
+  cleanlinessRating: number | null;
+  serviceRating: number | null;
+  comfortRating: number | null;
+  locationRating: number | null;
+  valueRating: number | null;
+  title: string | null;
+  comment: string;
+  images: string[] | null;
+  adminReply: string | null;
+  roomCategoryName: string | null;
+  stayPeriod: string | null;
+  createdAt: string;
+}
+
+export default function ReviewsPage() {
+  const [loading, setLoading] = useState(true);
+  const [reviews, setReviews] = useState<ReviewItem[]>([]);
+  const [summary, setSummary] = useState<SummaryData | null>(null);
+  
+  // Filter & Sort States
+  const [page, setPage] = useState(1);
+  const [limit] = useState(6);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalReviews, setTotalReviews] = useState(0);
+  const [ratingFilter, setRatingFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [sort, setSort] = useState('newest');
+
+  // Categories for Filter
+  const [categories, setCategories] = useState<any[]>([]);
+
+  // Featured Reviews for top section
+  const [featuredReviews, setFeaturedReviews] = useState<ReviewItem[]>([]);
+  const [loadingFeatured, setLoadingFeatured] = useState(true);
+
+  useEffect(() => {
+    fetchSummary();
+    fetchCategories();
+    fetchFeaturedReviews();
+  }, []);
+
+  useEffect(() => {
+    fetchReviews();
+  }, [page, ratingFilter, categoryFilter, sort]);
+
+  const fetchSummary = async () => {
+    try {
+      const res = await reviewService.getReviewsSummary();
+      if (res.success) {
+        setSummary(res.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch summary', err);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const cats = await roomService.getCategories();
+      setCategories(cats || []);
+    } catch (err) {
+      console.error('Failed to fetch categories', err);
+    }
+  };
+
+  const fetchFeaturedReviews = async () => {
+    setLoadingFeatured(true);
+    try {
+      const res = await reviewService.getApprovedReviews({ featured: true, limit: 3 });
+      setFeaturedReviews(res.items || []);
+    } catch (err) {
+      console.error('Failed to fetch featured reviews', err);
+    } finally {
+      setLoadingFeatured(false);
+    }
+  };
+
+  const fetchReviews = async () => {
+    setLoading(true);
+    try {
+      const queryParams = {
+        page,
+        limit,
+        rating: ratingFilter !== 'all' ? parseInt(ratingFilter, 10) : undefined,
+        roomCategoryId: categoryFilter !== 'all' ? categoryFilter : undefined,
+        sort,
+      };
+      const res = await reviewService.getApprovedReviews(queryParams);
+      setReviews(res.items || []);
+      setTotalPages(res.totalPages || 1);
+      setTotalReviews(res.total || 0);
+    } catch (err: any) {
+      toast.error('Không thể tải danh sách đánh giá');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRatingFilterChange = (val: string) => {
+    setRatingFilter(val);
+    setPage(1);
+  };
+
+  const handleCategoryFilterChange = (val: string) => {
+    setCategoryFilter(val);
+    setPage(1);
+  };
+
+  const handleSortChange = (val: string) => {
+    setSort(val);
+    setPage(1);
+  };
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return `Tháng ${d.getMonth() + 1}, ${d.getFullYear()}`;
+  };
+
+  const getPercent = (count: number, total: number) => {
+    if (total === 0) return 0;
+    return Math.round((count / total) * 100);
+  };
+
+  // Convert categories list to dynamic object
+  const categoryScores = summary
+    ? [
+        { label: 'Độ sạch sẽ', score: summary.categoryAverages.cleanliness || 5.0 },
+        { label: 'Dịch vụ', score: summary.categoryAverages.service || 5.0 },
+        { label: 'Sự thoải mái', score: summary.categoryAverages.comfort || 5.0 },
+        { label: 'Vị trí', score: summary.categoryAverages.location || 5.0 },
+        { label: 'Đáng tiền', score: summary.categoryAverages.value || 5.0 },
+      ]
+    : [
+        { label: 'Độ sạch sẽ', score: 5.0 },
+        { label: 'Dịch vụ', score: 5.0 },
+        { label: 'Sự thoải mái', score: 5.0 },
+        { label: 'Vị trí', score: 5.0 },
+        { label: 'Đáng tiền', score: 5.0 },
+      ];
+
   return (
     <>
       {/* ── HERO ── */}
       <header className="relative min-h-[55vh] flex items-center overflow-hidden bg-[#1A1A1A]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           className="absolute inset-0 w-full h-full object-cover opacity-40"
           alt="Happy couple at sunset"
@@ -86,7 +188,7 @@ export default function Reviews() {
         <div className="relative z-10 max-w-7xl mx-auto px-8 w-full py-20">
           <div className="max-w-2xl">
             <span className="block text-[10px] uppercase tracking-[0.4em] text-[#C8A97E] font-medium mb-4">
-              Phản hồi từ quý khách
+              Phản hồi thực tế từ khách hàng
             </span>
             <h1 className="text-5xl md:text-7xl font-light text-white mb-5 leading-[1.05]" style={SERIF}>
               Khách hàng<br />
@@ -94,42 +196,53 @@ export default function Reviews() {
             </h1>
             <div className="w-12 h-[1px] bg-[#C8A97E] mb-6" />
             <p className="text-white/70 font-light leading-relaxed max-w-xl">
-              Cùng nghe những nhận xét chân thực từ hàng ngàn du khách đã lựa chọn Hotel Hoang Minh cho kỳ nghỉ của mình.
+              Những nhận xét chân thực và công tâm nhất được gửi từ các vị khách đã từng lưu trú tại khách sạn Hoàng Minh.
             </p>
           </div>
         </div>
       </header>
 
       {/* ── STATS BAR ── */}
-      <section className="bg-white border-b border-stone-100 shadow-sm">
-        <div className="max-w-7xl mx-auto px-8 py-10">
+      <section className="bg-white border-b border-stone-100 shadow-xs">
+        <div className="max-w-7xl mx-auto px-8 py-12">
           <div className="flex flex-col lg:flex-row items-center gap-12">
             {/* Overall score */}
-            <div className="text-center lg:border-r lg:border-stone-200 lg:pr-12 flex-shrink-0">
-              <div className="text-7xl font-light text-[#C8A97E]" style={SERIF}>4.8</div>
-              <div className="flex justify-center text-[#C8A97E] my-2">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <span key={i} className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+            <div className="text-center lg:border-r lg:border-stone-200 lg:pr-12 flex-shrink-0 min-w-[180px]">
+              <div className="text-7xl font-light text-[#C8A97E]" style={SERIF}>
+                {summary?.averageRating || '5.0'}
+              </div>
+              <div className="flex justify-center text-[#C8A97E] my-2.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <span
+                    key={i}
+                    className="material-symbols-outlined text-xl"
+                    style={{
+                      fontVariationSettings:
+                        i < Math.round(summary?.averageRating || 5) ? "'FILL' 1" : "'FILL' 0",
+                    }}
+                  >
                     star
                   </span>
                 ))}
               </div>
-              <p className="text-xs uppercase tracking-[0.2em] text-stone-500 font-medium">Trên 5.0 Điểm</p>
-              <p className="text-xs text-stone-400 mt-1">Dựa trên 2,450 đánh giá</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-stone-500 font-bold">Trên 5.0 Điểm</p>
+              <p className="text-xs text-stone-400 mt-1.5">
+                Dựa trên {summary?.totalReviews || 0} đánh giá thực tế
+              </p>
             </div>
 
             {/* Category scores */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-16 gap-y-5 w-full">
-              {CATEGORIES.map(({ label, score, pct }) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-6 w-full">
+              {categoryScores.map(({ label, score }) => (
                 <div key={label} className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="font-medium text-stone-700">{label}</span>
-                    <span className="text-[#C8A97E] font-semibold">{score}</span>
+                    <span className="font-semibold text-stone-700">{label}</span>
+                    <span className="text-[#C8A97E] font-bold">{score} / 5.0</span>
                   </div>
-                  <div className="h-1 w-full bg-stone-100 overflow-hidden">
+                  <div className="h-1.5 w-full bg-stone-100 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-[#C8A97E] transition-all duration-700"
-                      style={{ width: `${pct}%` }}
+                      className="h-full bg-[#C8A97E] transition-all duration-700 rounded-full"
+                      style={{ width: `${(score / 5) * 100}%` }}
                     />
                   </div>
                 </div>
@@ -139,86 +252,315 @@ export default function Reviews() {
         </div>
       </section>
 
-      {/* ── REVIEW CARDS ── */}
-      <section className="py-24 bg-[#F8F6F3]">
-        <div className="max-w-7xl mx-auto px-8">
-          <div className="text-center mb-14">
-            <span className="text-[10px] uppercase tracking-[0.3em] text-[#C8A97E] font-medium block mb-3">
-              Câu chuyện từ khách hàng
-            </span>
-            <h2 className="text-4xl font-light text-stone-900" style={SERIF}>
-              Đánh giá nổi bật
-            </h2>
-          </div>
+      {/* ── FEATURED REVIEWS ── */}
+      {featuredReviews.length > 0 && (
+        <section className="py-20 bg-stone-50 border-b border-stone-100">
+          <div className="max-w-7xl mx-auto px-8">
+            <div className="text-center mb-12">
+              <span className="text-[10px] uppercase tracking-[0.3em] text-[#C8A97E] font-bold block mb-3">
+                Tuyển chọn đặc biệt
+              </span>
+              <h2 className="text-3xl font-light text-stone-900" style={SERIF}>
+                Đánh giá nổi bật
+              </h2>
+              <div className="w-8 h-[1px] bg-[#C8A97E] mx-auto mt-4" />
+            </div>
 
-          <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
-            {REVIEWS.map((review) => (
-              <div
-                key={review.id}
-                className="break-inside-avoid bg-white p-8 border border-stone-100 hover:shadow-lg hover:shadow-stone-200/60 transition-all duration-300 relative group"
-              >
-                {/* Quote mark */}
-                <span
-                  className="absolute top-5 right-6 text-7xl leading-none text-[#C8A97E]/10 select-none"
-                  style={SERIF}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {featuredReviews.map((review) => (
+                <div
+                  key={review.id}
+                  className="bg-white p-8 border border-stone-100 hover:shadow-lg transition-all duration-300 relative group flex flex-col justify-between"
                 >
-                  &ldquo;
-                </span>
-
-                {/* Reviewer */}
-                <div className="flex items-center gap-4 mb-4">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    alt={review.name}
-                    className="w-11 h-11 rounded-full object-cover ring-2 ring-[#C8A97E]/20"
-                    src={review.avatar}
-                  />
+                  <span
+                    className="absolute top-5 right-6 text-7xl leading-none text-[#C8A97E]/10 select-none"
+                    style={SERIF}
+                  >
+                    &ldquo;
+                  </span>
                   <div>
-                    <p className="font-semibold text-stone-800 text-sm">{review.name}</p>
-                    <p className="text-xs text-stone-400">{review.date} · {review.room}</p>
+                    {/* Reviewer */}
+                    <div className="flex items-center gap-4 mb-5">
+                      {review.customerAvatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          alt={review.customerName}
+                          className="w-11 h-11 rounded-full object-cover ring-2 ring-[#C8A97E]/20"
+                          src={review.customerAvatar}
+                        />
+                      ) : (
+                        <div className="w-11 h-11 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+                          {review.customerName[0]?.toUpperCase() || 'K'}
+                        </div>
+                      )}
+                      <div>
+                        <p className="font-bold text-stone-850 text-sm">{review.customerName}</p>
+                        <p className="text-xs text-stone-400">
+                          {formatDate(review.createdAt)} · {review.roomCategoryName || 'Khách sạn'}
+                          {review.stayPeriod && ` · ${review.stayPeriod}`}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Stars */}
+                    <div className="flex text-[#C8A97E] mb-4">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <span
+                          key={i}
+                          className="material-symbols-outlined text-[16px]"
+                          style={{
+                            fontVariationSettings: i < review.rating ? "'FILL' 1" : "'FILL' 0",
+                          }}
+                        >
+                          star
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Text */}
+                    {review.title && (
+                      <p className="font-bold text-stone-800 text-sm mb-1.5">{review.title}</p>
+                    )}
+                    <p className="text-stone-500 text-sm leading-relaxed italic">
+                      &ldquo;{review.comment}&rdquo;
+                    </p>
+                  </div>
+
+                  {/* Admin Reply */}
+                  {review.adminReply && (
+                    <div className="mt-5 pt-4 border-t border-stone-100 text-xs bg-stone-50/50 p-3 rounded-lg text-stone-600">
+                      <p className="font-bold text-primary mb-1">Phản hồi của khách sạn:</p>
+                      <p className="italic leading-relaxed">&ldquo;{review.adminReply}&rdquo;</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── ALL REVIEWS SECTION ── */}
+      <section className="py-24 bg-[#FBF9F6]">
+        <div className="max-w-7xl mx-auto px-8">
+          <div className="flex flex-col lg:flex-row gap-10">
+            {/* Left Column: Filter Sidebar */}
+            <div className="w-full lg:w-64 flex-shrink-0 space-y-6">
+              <div className="bg-white p-6 border border-stone-100 rounded-lg space-y-5">
+                <h3 className="text-sm font-bold text-stone-800 flex items-center gap-2 pb-3 border-b border-stone-100 uppercase tracking-wider">
+                  <Filter size={16} /> Bộ lọc nhận xét
+                </h3>
+
+                {/* Rating filter */}
+                <div className="space-y-2.5">
+                  <h4 className="text-xs font-bold text-stone-500 uppercase">Theo số sao</h4>
+                  <div className="space-y-2">
+                    {[
+                      { label: 'Tất cả đánh giá', val: 'all' },
+                      { label: '5 sao', val: '5' },
+                      { label: '4 sao', val: '4' },
+                      { label: '3 sao', val: '3' },
+                      { label: '2 sao', val: '2' },
+                      { label: '1 sao', val: '1' },
+                    ].map((item) => (
+                      <label key={item.val} className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer select-none">
+                        <input
+                          type="radio"
+                          name="ratingFilter"
+                          checked={ratingFilter === item.val}
+                          onChange={() => handleRatingFilterChange(item.val)}
+                          className="text-primary focus:ring-primary border-stone-300"
+                        />
+                        <span>{item.label}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
 
-                {/* Stars */}
-                <div className="flex text-[#C8A97E] mb-4">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <span
-                      key={i}
-                      className="material-symbols-outlined text-[15px]"
-                      style={{ fontVariationSettings: i < review.stars ? "'FILL' 1" : "'FILL' 0" }}
-                    >
-                      star
-                    </span>
-                  ))}
+                {/* Room category filter */}
+                <div className="space-y-2.5 pt-4 border-t border-stone-100">
+                  <h4 className="text-xs font-bold text-stone-500 uppercase">Loại phòng nghỉ</h4>
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => handleCategoryFilterChange(e.target.value)}
+                    className="w-full p-2.5 border border-stone-200 rounded-lg text-sm text-stone-600 bg-white focus:outline-none focus:border-[#C8A97E]"
+                  >
+                    <option value="all">Tất cả loại phòng</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                {/* Text */}
-                <p className="text-stone-500 text-sm leading-relaxed italic">
-                  &ldquo;{review.text}&rdquo;
-                </p>
-
-                {/* Helpful */}
-                {review.helpful > 0 && (
-                  <div className="mt-5 pt-4 border-t border-stone-100 flex items-center justify-between">
-                    <button className="flex items-center gap-2 text-xs text-[#C8A97E] font-medium hover:text-[#b5956a] transition-colors">
-                      <span className="material-symbols-outlined text-base">thumb_up</span>
-                      Hữu ích ({review.helpful})
-                    </button>
-                    <button className="text-stone-400 hover:text-[#C8A97E] transition-colors">
-                      <span className="material-symbols-outlined text-base">share</span>
-                    </button>
-                  </div>
-                )}
+                {/* Sort filter */}
+                <div className="space-y-2.5 pt-4 border-t border-stone-100">
+                  <h4 className="text-xs font-bold text-stone-500 uppercase flex items-center gap-1.5">
+                    <ArrowUpDown size={13} /> Sắp xếp theo
+                  </h4>
+                  <select
+                    value={sort}
+                    onChange={(e) => handleSortChange(e.target.value)}
+                    className="w-full p-2.5 border border-stone-200 rounded-lg text-sm text-stone-600 bg-white focus:outline-none focus:border-[#C8A97E]"
+                  >
+                    <option value="newest">Mới nhất</option>
+                    <option value="highest">Điểm cao nhất</option>
+                    <option value="lowest">Điểm thấp nhất</option>
+                    <option value="featured">Được yêu thích nhất</option>
+                  </select>
+                </div>
               </div>
-            ))}
+            </div>
+
+            {/* Right Column: Review list */}
+            <div className="flex-1 space-y-6">
+              <div className="flex justify-between items-center text-sm text-stone-500 pb-3 border-b border-stone-100">
+                <span className="font-medium">Tìm thấy {totalReviews} nhận xét khách hàng</span>
+              </div>
+
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-24 gap-3 bg-white border border-stone-100 rounded-lg">
+                  <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                  <p className="text-sm text-stone-400">Đang tải danh sách nhận xét...</p>
+                </div>
+              ) : reviews.length === 0 ? (
+                <div className="text-center py-20 bg-white border border-stone-100 rounded-lg p-8">
+                  <div className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <MessageSquare size={28} className="text-stone-300" />
+                  </div>
+                  <h3 className="text-base font-semibold text-stone-800">Chưa có đánh giá nào được hiển thị.</h3>
+                  <p className="text-sm text-stone-500 mt-1 max-w-sm mx-auto">
+                    Hiện chưa có đánh giá nào phù hợp với bộ lọc được duyệt để hiển thị công khai.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {reviews.map((review) => (
+                    <div
+                      key={review.id}
+                      className="bg-white p-8 border border-stone-100 rounded-lg hover:shadow-xs transition-all flex flex-col gap-4"
+                    >
+                      {/* Top row: Reviewer info & rating */}
+                      <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4 pb-4 border-b border-stone-50">
+                        <div className="flex items-center gap-4.5">
+                          {review.customerAvatar ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              alt={review.customerName}
+                              className="w-12 h-12 rounded-full object-cover border border-stone-100 shadow-xs"
+                              src={review.customerAvatar}
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-base border border-primary/5">
+                              {review.customerName[0]?.toUpperCase() || 'K'}
+                            </div>
+                          )}
+                          <div>
+                            <h4 className="font-bold text-stone-800 text-sm">{review.customerName}</h4>
+                            <p className="text-xs text-stone-450 mt-0.5">
+                              Đã lưu trú: {review.roomCategoryName || 'Khách sạn'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col sm:items-end gap-1.5">
+                          <div className="flex text-[#C8A97E]">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <span
+                                key={i}
+                                className="material-symbols-outlined text-[18px]"
+                                style={{
+                                  fontVariationSettings: i < review.rating ? "'FILL' 1" : "'FILL' 0",
+                                }}
+                              >
+                                star
+                              </span>
+                            ))}
+                          </div>
+                          <span className="text-[10px] text-stone-400 font-bold flex items-center gap-1">
+                            <Calendar size={12} /> {formatDate(review.createdAt)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Content */}
+                      <div className="space-y-2">
+                        {review.title && (
+                          <h5 className="font-bold text-stone-850 text-sm leading-snug">
+                            {review.title}
+                          </h5>
+                        )}
+                        <p className="text-stone-600 text-sm leading-relaxed italic">
+                          &ldquo;{review.comment}&rdquo;
+                        </p>
+                      </div>
+
+                      {/* Review Images */}
+                      {review.images && review.images.length > 0 && (
+                        <div className="flex gap-2 pt-1 overflow-x-auto">
+                          {review.images.map((img, idx) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={idx}
+                              src={img}
+                              alt={`Guest upload ${idx + 1}`}
+                              className="w-20 h-20 rounded-lg object-cover border border-stone-100 hover:scale-102 transition-transform cursor-pointer"
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Admin Response */}
+                      {review.adminReply && (
+                        <div className="bg-[#FAF9F5] p-5 rounded-lg border border-stone-100 text-xs text-stone-600 mt-2 space-y-1.5">
+                          <p className="font-bold text-[#C8A97E] uppercase tracking-wider flex items-center gap-1.5">
+                            <MessageSquare size={13} /> Phản hồi từ Hoàng Minh Hotel:
+                          </p>
+                          <p className="italic leading-relaxed">&ldquo;{review.adminReply}&rdquo;</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-2 pt-4">
+                      <button
+                        onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                        disabled={page === 1}
+                        className="p-2.5 border border-stone-200 rounded-lg hover:bg-stone-50 disabled:opacity-40 transition-colors"
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                      <span className="text-sm text-stone-500 font-medium px-4">
+                        Trang {page} / {totalPages}
+                      </span>
+                      <button
+                        onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                        disabled={page === totalPages}
+                        className="p-2.5 border border-stone-200 rounded-lg hover:bg-stone-50 disabled:opacity-40 transition-colors"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>
 
       {/* ── CTA ── */}
       <section className="py-24 bg-[#1A1A1A] relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10 bg-cover bg-center"
-          style={{ backgroundImage: "url('https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1920&q=80')" }} />
+        <div
+          className="absolute inset-0 opacity-10 bg-cover bg-center"
+          style={{
+            backgroundImage:
+              "url('https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1920&q=80')",
+          }}
+        />
         <div className="relative z-10 max-w-3xl mx-auto text-center px-6">
           <h2 className="text-4xl md:text-5xl font-light text-white mb-4" style={SERIF}>
             Trở thành khách hàng tiếp theo<br />

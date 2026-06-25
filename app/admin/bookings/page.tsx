@@ -27,9 +27,10 @@ function formatDate(iso?: string | null): string {
 // ─── Badges ──────────────────────────────────────────────────────────────────
 
 const PAYMENT_CONFIG: Record<PaymentStatus, { label: string; className: string }> = {
-  unpaid: { label: 'Chưa thanh toán', className: 'bg-orange-100 text-orange-700 border-orange-200' },
-  paid: { label: 'Đã thanh toán', className: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  refunded: { label: 'Đã hoàn tiền', className: 'bg-purple-100 text-purple-700 border-purple-200' },
+  UNPAID: { label: 'Chưa thanh toán', className: 'bg-orange-100 text-orange-700 border-orange-200' },
+  PAID: { label: 'Đã thanh toán', className: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  REFUNDED: { label: 'Đã hoàn tiền', className: 'bg-purple-100 text-purple-700 border-purple-200' },
+  FAILED: { label: 'Thất bại', className: 'bg-red-100 text-red-700 border-red-200' },
 };
 
 function PaymentBadge({ status }: { status: PaymentStatus }) {
@@ -95,8 +96,6 @@ export default function AdminBookingsPage() {
         check_in_to: dateTo || undefined,
       };
       const res = await bookingService.getBookings(query);
-      console.log('API Bookings Response (First item):', res.data?.[0]);
-      console.log('API Bookings Response (All):', res.data);
       setBookings(res.data);
       setTotal(res.total);
       setTotalPages(res.totalPages);
@@ -124,11 +123,7 @@ export default function AdminBookingsPage() {
     fetchBookings();
   }, [fetchBookings]);
 
-  useEffect(() => {
-    console.log("BOOKINGS", bookings);
-  }, [bookings]);
 
-  // Sync state to URL
   useEffect(() => {
     const params = new URLSearchParams();
     if (search) params.set('search', search);

@@ -53,7 +53,7 @@ export interface PublicBooking {
 // ============================================================
 
 export interface BookingSearchRequest {
-  booking_code: string;
+  bookingCode: string;
   phone: string;
 }
 
@@ -77,6 +77,7 @@ export interface CancelBookingRequest {
 export interface CancelBookingResponse {
   success: boolean;
   message?: string;
+  data?: any;
 }
 
 // ============================================================
@@ -84,7 +85,7 @@ export interface CancelBookingResponse {
 // ============================================================
 
 export interface BookingLookupFormErrors {
-  booking_code?: string;
+  bookingCode?: string;
   phone?: string;
   general?: string;
 }

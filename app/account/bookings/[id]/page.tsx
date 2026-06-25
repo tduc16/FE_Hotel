@@ -90,7 +90,6 @@ export default function BookingDetailPage() {
   const checkOut = booking.check_out || booking.checkOutDate || booking.check_out_date;
   const price = booking.total_price ?? booking.totalPrice ?? 0;
   const status = booking.status || booking.bookingStatus || booking.booking_status || 'PENDING';
-  const payStatus = booking.payment_status || booking.paymentStatus || 'unpaid';
   const customerName = booking.customer?.name || booking.customerName || booking.guestName || 'Khách hàng';
   const customerEmail = booking.customer?.email || booking.email || '';
   const customerPhone = booking.customer?.phone || booking.phone || '';
@@ -99,13 +98,16 @@ export default function BookingDetailPage() {
 
   const isCancelable = status === 'PENDING' || status === 'CONFIRMED';
 
-  const paymentStatusMap = {
-    unpaid: { label: 'Chưa thanh toán', color: 'text-amber-700 bg-amber-50 border-amber-200/50' },
-    paid: { label: 'Đã thanh toán', color: 'text-emerald-700 bg-emerald-50 border-emerald-200/50' },
-    refunded: { label: 'Đã hoàn tiền', color: 'text-slate-600 bg-slate-100 border-slate-200/50' },
+  const payStatus = booking.payment_status || booking.paymentStatus || 'UNPAID';
+
+  const paymentStatusMap: Record<string, { label: string; color: string }> = {
+    UNPAID: { label: 'Chưa thanh toán', color: 'text-amber-700 bg-amber-50 border-amber-200/50' },
+    PAID: { label: 'Đã thanh toán', color: 'text-emerald-700 bg-emerald-50 border-emerald-200/50' },
+    REFUNDED: { label: 'Đã hoàn tiền', color: 'text-slate-600 bg-slate-100 border-slate-200/50' },
+    FAILED: { label: 'Thanh toán thất bại', color: 'text-red-700 bg-red-50 border-red-200/50' },
   };
 
-  const paymentConfig = paymentStatusMap[payStatus] || paymentStatusMap.unpaid;
+  const paymentConfig = paymentStatusMap[payStatus] || paymentStatusMap['UNPAID'];
 
   // Lịch sử timeline
   const histories = booking.histories || [];

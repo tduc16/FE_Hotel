@@ -13,6 +13,7 @@ import {
   Hotel,
   ChevronRight,
   X,
+  MessageSquare,
 } from 'lucide-react';
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 import toast from 'react-hot-toast';
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { label: 'Hồ sơ', href: '/account/profile', icon: User },
   { label: 'Điểm thưởng', href: '/account/rewards', icon: Star },
   { label: 'Voucher', href: '/account/vouchers', icon: Ticket },
+  { label: 'Đánh giá của tôi', href: '/account/reviews', icon: MessageSquare },
   { label: 'Cài đặt', href: '/account/settings', icon: Settings },
 ];
 

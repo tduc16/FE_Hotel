@@ -86,17 +86,21 @@ const PAYMENT_STATUS_CONFIG: Record<
   PaymentStatus,
   { label: string; className: string }
 > = {
-  unpaid: {
+  UNPAID: {
     label: 'Chưa thanh toán',
     className: 'bg-amber-50 text-amber-700 border border-amber-200',
   },
-  paid: {
+  PAID: {
     label: 'Đã thanh toán',
     className: 'bg-green-50 text-green-700 border border-green-200',
   },
-  refunded: {
+  REFUNDED: {
     label: 'Đã hoàn tiền',
     className: 'bg-blue-50 text-blue-700 border border-blue-200',
+  },
+  FAILED: {
+    label: 'Thanh toán thất bại',
+    className: 'bg-red-50 text-red-700 border border-red-200',
   },
 };
 

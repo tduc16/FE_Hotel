@@ -101,6 +101,7 @@ export default function ChatWindow({
           content: response.reply,
           intent: response.intent,
           timestamp: new Date(),
+          actions: response.actions,
         };
 
         setMessages((prev) => [...prev, botMsg]);

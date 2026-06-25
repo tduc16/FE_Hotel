@@ -33,9 +33,10 @@ const STATUS_CFG: Record<BookingStatus, { label: string; bg: string; dot: string
 };
 
 const PAYMENT_CFG: Record<PaymentStatus, { label: string; cls: string }> = {
-  unpaid:   { label: 'Chưa thanh toán', cls: 'text-orange-600 bg-orange-50 border-orange-200' },
-  paid:     { label: 'Đã thanh toán',   cls: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
-  refunded: { label: 'Đã hoàn tiền',    cls: 'text-purple-600 bg-purple-50 border-purple-200' },
+  UNPAID:   { label: 'Chưa thanh toán', cls: 'text-orange-600 bg-orange-50 border-orange-200' },
+  PAID:     { label: 'Đã thanh toán',   cls: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
+  REFUNDED: { label: 'Đã hoàn tiền',    cls: 'text-purple-600 bg-purple-50 border-purple-200' },
+  FAILED:   { label: 'Thất bại',        cls: 'text-red-600 bg-red-50 border-red-200' },
 };
 
 // ─── Row helper ──────────────────────────────────────────────────────────────

@@ -18,31 +18,55 @@ export const publicBookingService = {
    * GET /public/bookings/search?booking_code=...&phone=...
    */
   async searchBooking(payload: BookingSearchRequest): Promise<BookingSearchResponse> {
-    const params = new URLSearchParams({
-      booking_code: payload.booking_code.trim(),
-      phone: payload.phone.trim(),
-    });
-
-    const url = `${baseUrl}/public/bookings/search?${params.toString()}`;
+    const url = `${baseUrl}/bookings/lookup`;
     console.log('[publicBookingService] searchBooking URL:', url);
 
-    const res = await fetch(url, { cache: 'no-store' });
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+    });
     const data = await res.json().catch(() => null);
 
     if (!res.ok) {
-      // 404 → không tìm thấy
       if (res.status === 404) {
-        return { success: false, data: null, message: 'Không tìm thấy đặt phòng với thông tin đã cung cấp.' };
+        return { success: false, data: null, message: 'Không tìm thấy đơn đặt phòng phù hợp. Vui lòng kiểm tra lại mã đặt phòng và số điện thoại.' };
       }
       const errMsg = data?.message || `Lỗi tìm kiếm: HTTP ${res.status}`;
       return { success: false, data: null, message: errMsg };
     }
 
-    // Chuẩn hoá response
-    const booking = data?.data ?? data?.booking ?? data;
-    const token = data?.token ?? data?.data?.manage_token ?? null;
+    if (data && data.success === false) {
+      return { success: false, data: null, message: data.message || 'Không tìm thấy đơn đặt phòng phù hợp. Vui lòng kiểm tra lại mã đặt phòng và số điện thoại.' };
+    }
 
-    return { success: true, data: booking, token };
+    const booking = data?.data ?? data;
+    return { success: true, data: booking };
+  },
+
+  async guestCancelBooking(payload: BookingSearchRequest): Promise<CancelBookingResponse> {
+    const url = `${baseUrl}/bookings/guest-cancel`;
+    console.log('[publicBookingService] guestCancelBooking URL:', url);
+
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+    });
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      const errMsg = data?.message || `Không thể huỷ đặt phòng: HTTP ${res.status}`;
+      return { success: false, message: errMsg };
+    }
+
+    if (data && data.success === false) {
+      return { success: false, message: data.message || 'Không thể huỷ đặt phòng.' };
+    }
+
+    return { success: true, message: data?.message ?? 'Đặt phòng đã được huỷ thành công.', data: data?.data };
   },
 
   /**

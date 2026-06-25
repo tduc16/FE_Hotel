@@ -228,7 +228,7 @@ export default function ServicesPage() {
                   Trải Nghiệm Nổi Bật
                 </span>
                 <h2 className="font-serif-luxury text-3xl md:text-5xl font-light text-stone-900 dark:text-stone-55">
-                  Điểm Nhấn Kỳ Nghỉ
+                  Điểm Nhấn Đặc Biệt
                 </h2>
                 <div className="w-12 h-[1px] bg-[#c5a880] mx-auto mt-4"></div>
               </div>

@@ -50,9 +50,10 @@ function formatDatetime(iso?: string | null) {
 // ─── Badge Configs ────────────────────────────────────────────────────────────
 
 const PAYMENT_CONFIG: Record<PaymentStatus, { label: string; className: string }> = {
-  unpaid:   { label: 'Chưa thanh toán', className: 'bg-orange-100 text-orange-700 border-orange-200' },
-  paid:     { label: 'Đã thanh toán',   className: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  refunded: { label: 'Đã hoàn tiền',    className: 'bg-purple-100 text-purple-700 border-purple-200' },
+  UNPAID:   { label: 'Chưa thanh toán', className: 'bg-orange-100 text-orange-700 border-orange-200' },
+  PAID:     { label: 'Đã thanh toán',   className: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  REFUNDED: { label: 'Đã hoàn tiền',    className: 'bg-purple-100 text-purple-700 border-purple-200' },
+  FAILED:   { label: 'Thất bại',        className: 'bg-red-100 text-red-700 border-red-200' },
 };
 
 function PaymentBadge({ status }: { status: PaymentStatus }) {
@@ -154,17 +155,6 @@ export default function BookingDetailPage() {
     setError(null);
     try {
       const data = await bookingService.getBookingById(id) as ExtendedBooking;
-      console.log('BOOKING DETAIL', data);
-      console.table({
-        customerName: data.customerName,
-        email: data.email,
-        phone: data.phone,
-        roomCategory: data.roomCategory?.name,
-        roomNumber: data.room?.roomNumber,
-        guestCount: data.guestCount,
-        nightCount: data.nightCount,
-        totalAmount: data.totalAmount
-      });
       setBooking(data);
     } catch (e: unknown) {
       if (e instanceof Error && e.message === 'UNAUTHORIZED') {

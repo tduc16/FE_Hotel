@@ -7,7 +7,7 @@ export type BookingStatus =
   | 'CANCELLED'
   | 'EXPIRED';
 
-export type PaymentStatus = 'unpaid' | 'paid' | 'refunded';
+export type PaymentStatus = 'UNPAID' | 'PAID' | 'REFUNDED' | 'FAILED';
 
 export interface BookingCustomer {
   id: string;
