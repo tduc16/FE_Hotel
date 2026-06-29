@@ -5,9 +5,10 @@ import type {
   UpdateProfilePayload,
   ChangePasswordPayload,
   Customer,
+  ResetPasswordPayload,
 } from '@/types/customer';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 const getAuthHeaders = (): HeadersInit => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('customer_access_token') : null;
@@ -88,6 +89,24 @@ export const customerAuthService = {
     const res = await fetch(`${API_BASE}/customer-auth/change-password`, {
       method: 'PATCH',
       headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    return handleResponse(res);
+  },
+
+  forgotPassword: async (email: string): Promise<{ success: boolean; message: string }> => {
+    const res = await fetch(`${API_BASE}/customer-auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    return handleResponse(res);
+  },
+
+  resetPassword: async (payload: ResetPasswordPayload): Promise<{ success: boolean; message: string }> => {
+    const res = await fetch(`${API_BASE}/customer-auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     return handleResponse(res);

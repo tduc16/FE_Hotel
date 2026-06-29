@@ -1,4 +1,4 @@
-const AUTH_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const AUTH_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 export const authService = {
   login: async (username: string, password: string) => {

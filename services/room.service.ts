@@ -1,55 +1,70 @@
 import { RoomCategory } from '@/types/room';
 
-const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+
+const getCleanUrl = (path: string): string => {
+  const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  if (cleanBase.endsWith('/api') && cleanPath.startsWith('/api/')) {
+    return `${cleanBase.replace(/\/api$/, '')}${cleanPath}`;
+  }
+  return `${cleanBase}${cleanPath}`;
+};
 
 export const roomService = {
   async getCategories(): Promise<RoomCategory[]> {
-    const url = `${baseUrl}/rooms/categories`;
+    const url = getCleanUrl('/rooms/categories');
 
-    const res = await fetch(url, { cache: 'no-store' });
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
 
-    if (!res.ok) {
-      console.error(`[roomService] HTTP ${res.status} khi gọi ${url}`);
-      throw new Error(`Failed to fetch categories: HTTP ${res.status}`);
+      if (!res.ok) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(`[roomService Warning] HTTP ${res.status} khi gọi ${url}`);
+        }
+        return [];
+      }
+
+      const data = await res.json();
+      
+      // Hỗ trợ cả 2 dạng response: { data: [...] } và [...] trực tiếp
+      const rawCategories = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.data)
+        ? data.data
+        : [];
+
+      return rawCategories;
+    } catch (err: any) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`[roomService Warning] Lỗi kết nối khi gọi ${url}: ${err.message || err}`);
+      }
+      return [];
     }
-
-    const data = await res.json();
-    console.log(`[roomService] RAW API RESPONSE FULL:`, JSON.stringify(data, null, 2));
-
-    // Hỗ trợ cả 2 dạng response: { data: [...] } và [...] trực tiếp
-    const rawCategories = Array.isArray(data)
-      ? data
-      : Array.isArray(data?.data)
-      ? data.data
-      : [];
-
-    console.log(`[roomService] Số lượng rooms nhận từ API: ${rawCategories.length}`);
-    
-    // Đảm bảo không filter bất kỳ room nào dù không có ảnh
-    const categories: RoomCategory[] = rawCategories;
-    console.log(`[roomService] Số lượng rooms sau filter (chúng ta giữ nguyên): ${categories.length}`);
-
-    categories.forEach((c, i) =>
-      console.log(`  [${i}] Room ID: ${c.id} | Name: ${c.name} | Thumbnail: ${c.thumbnail_url}`)
-    );
-
-    return categories;
   },
 
   async getCategoryById(id: string): Promise<RoomCategory> {
-    const url = `${baseUrl}/rooms/categories/${id}`;
+    const url = getCleanUrl(`/rooms/categories/${id}`);
 
-    const res = await fetch(url, { cache: 'no-store' });
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
 
-    if (!res.ok) {
-      console.error(`[roomService] HTTP ${res.status} khi gọi ${url}`);
-      throw new Error(`Failed to fetch category: HTTP ${res.status}`);
+      if (!res.ok) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(`[roomService Warning] HTTP ${res.status} khi gọi ${url}`);
+        }
+        throw new Error(`Failed to fetch category: HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      const category = data?.data || data;
+      return category as RoomCategory;
+    } catch (err: any) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`[roomService Warning] Lỗi khi gọi ${url}: ${err.message || err}`);
+      }
+      throw err;
     }
-
-    const data = await res.json();
-    console.log(`[roomService] RAW API RESPONSE GET BY ID:`, JSON.stringify(data, null, 2));
-
-    const category = data?.data || data;
-    return category as RoomCategory;
   },
 };
+

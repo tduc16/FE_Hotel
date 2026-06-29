@@ -6,7 +6,7 @@ import {
   CancelBookingResponse,
 } from '@/types/public-booking';
 
-const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 /**
  * Public Booking Service - không cần xác thực (JWT)

@@ -219,13 +219,12 @@ export default function LoginPage() {
                   <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A97E]">
                     Mật khẩu bảo mật
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setForgotOpen(true)}
+                  <Link
+                    href="/forgot-password"
                     className="text-xs text-stone-400 hover:text-[#C8A97E] font-medium transition-colors"
                   >
                     Quên mật khẩu?
-                  </button>
+                  </Link>
                 </div>
                 <div className="relative">
                   <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />

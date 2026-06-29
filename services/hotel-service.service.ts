@@ -1,7 +1,16 @@
 import { HotelService } from '@/types/services';
 import { authService } from './auth.service';
 
-const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+
+const getCleanUrl = (path: string): string => {
+  const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  if (cleanBase.endsWith('/api') && cleanPath.startsWith('/api/')) {
+    return `${cleanBase.replace(/\/api$/, '')}${cleanPath}`;
+  }
+  return `${cleanBase}${cleanPath}`;
+};
 
 const getAuthHeaders = (): HeadersInit => {
   const token = authService.getToken();
@@ -41,35 +50,35 @@ export const hotelServiceApi = {
   // ==========================================
 
   async getServices(): Promise<HotelService[]> {
-    const url = `${baseUrl}/services`;
+    const url = getCleanUrl('/services');
     try {
       const res = await fetch(url, { cache: 'no-store' });
 
       if (!res.ok) {
         if (process.env.NODE_ENV === 'development') {
-          console.error(`[API Error] Failed to fetch services. URL: ${url}, Status: ${res.status}`);
+          console.warn(`[API Warning] Failed to fetch services. URL: ${url}, Status: ${res.status}`);
         }
-        throw new Error(`Failed to fetch services: HTTP ${res.status}`);
+        return [];
       }
 
       const json = await res.json();
       return normalizeServices(json);
     } catch (err: any) {
       if (process.env.NODE_ENV === 'development') {
-        console.error(`[API Error] Failed to fetch services. URL: ${url}, Error: ${err.message || err}`);
+        console.warn(`[API Warning] Failed to fetch services. URL: ${url}, Error: ${err.message || err}`);
       }
-      throw err;
+      return [];
     }
   },
 
   async getServiceBySlug(slug: string): Promise<HotelService> {
-    const url = `${baseUrl}/services/${slug}`;
+    const url = getCleanUrl(`/services/${slug}`);
     try {
       const res = await fetch(url, { cache: 'no-store' });
 
       if (!res.ok) {
         if (process.env.NODE_ENV === 'development') {
-          console.error(`[API Error] Failed to fetch service detail. URL: ${url}, Status: ${res.status}`);
+          console.warn(`[API Warning] Failed to fetch service detail. URL: ${url}, Status: ${res.status}`);
         }
         throw new Error(`Failed to fetch service detail: HTTP ${res.status}`);
       }
@@ -79,7 +88,7 @@ export const hotelServiceApi = {
       return mapServiceFields(item);
     } catch (err: any) {
       if (process.env.NODE_ENV === 'development') {
-        console.error(`[API Error] Failed to fetch service detail. URL: ${url}, Error: ${err.message || err}`);
+        console.warn(`[API Warning] Failed to fetch service detail. URL: ${url}, Error: ${err.message || err}`);
       }
       throw err;
     }
@@ -101,7 +110,7 @@ export const hotelServiceApi = {
     if (params.page !== undefined) query.append('page', String(params.page));
     if (params.limit !== undefined) query.append('limit', String(params.limit));
 
-    const url = `${baseUrl}/admin/services?${query.toString()}`;
+    const url = getCleanUrl(`/admin/services?${query.toString()}`);
     const res = await fetch(url, {
       headers: getAuthHeaders(),
       cache: 'no-store',
@@ -125,7 +134,7 @@ export const hotelServiceApi = {
   },
 
   async getAdminServiceById(id: string): Promise<HotelService> {
-    const url = `${baseUrl}/admin/services/${id}`;
+    const url = getCleanUrl(`/admin/services/${id}`);
     const res = await fetch(url, {
       headers: getAuthHeaders(),
       cache: 'no-store',
@@ -144,7 +153,7 @@ export const hotelServiceApi = {
   },
 
   async createService(data: Partial<HotelService>): Promise<HotelService> {
-    const url = `${baseUrl}/admin/services`;
+    const url = getCleanUrl('/admin/services');
     const res = await fetch(url, {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -164,7 +173,7 @@ export const hotelServiceApi = {
   },
 
   async updateService(id: string, data: Partial<HotelService>): Promise<HotelService> {
-    const url = `${baseUrl}/admin/services/${id}`;
+    const url = getCleanUrl(`/admin/services/${id}`);
     const res = await fetch(url, {
       method: 'PUT',
       headers: getAuthHeaders(),
@@ -184,7 +193,7 @@ export const hotelServiceApi = {
   },
 
   async deleteService(id: string): Promise<HotelService> {
-    const url = `${baseUrl}/admin/services/${id}`;
+    const url = getCleanUrl(`/admin/services/${id}`);
     const res = await fetch(url, {
       method: 'DELETE',
       headers: getAuthHeaders(),

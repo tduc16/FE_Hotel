@@ -1,4 +1,16 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+
+const getCleanUrl = (path: string): string => {
+  const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  if (cleanBase.endsWith('/api') && cleanPath.startsWith('/api/')) {
+    return `${cleanBase.replace(/\/api$/, '')}${cleanPath}`;
+  }
+  return `${cleanBase}${cleanPath}`;
+};
+
+const API_BASE = baseUrl; // Giữ nguyên biến để không ảnh hưởng đến các tham chiếu cũ dưới
+
 
 const getCustomerHeaders = (): HeadersInit => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('customer_access_token') : null;

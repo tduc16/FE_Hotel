@@ -2,7 +2,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 const LOCK_FILE = path.join(__dirname, '..', '.next', 'lock');
 
 console.log(`[Safe Start] Đang kiểm tra cổng ${PORT} và lockfile...`);

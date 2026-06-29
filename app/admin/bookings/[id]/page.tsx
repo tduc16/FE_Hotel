@@ -13,34 +13,34 @@ type ExtendedBooking = Booking & {
     name?: string | null;
     basePrice?: number | null;
   } | null;
+  bankQrUrl?: string | null;
+  bankTransferContent?: string | null;
+  paidAt?: string | null;
+  paymentMethod?: string | null;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const displayValue = (value: any) =>
-  value !== null &&
-  value !== undefined &&
-  value !== ''
-    ? value
-    : '—';
+  value !== null && value !== undefined && value !== '' ? value : '—';
 
 function formatCurrency(amount?: number | string | null) {
   const num = Number(amount);
-  if (amount == null || isNaN(num)) return "—";
+  if (amount == null || isNaN(num)) return '—';
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
 }
 
 function formatDate(iso?: string | null) {
-  if (!iso) return "—";
+  if (!iso) return '—';
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return "—";
+  if (isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 function formatDatetime(iso?: string | null) {
-  if (!iso) return "—";
+  if (!iso) return '—';
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return "—";
+  if (isNaN(d.getTime())) return '—';
   return d.toLocaleString('vi-VN', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
@@ -119,14 +119,13 @@ interface TimelineEvent {
 function buildTimeline(booking: ExtendedBooking): TimelineEvent[] {
   const status = booking.status ?? booking.bookingStatus ?? booking.booking_status ?? 'PENDING';
   const steps: { key: BookingStatus; label: string; color: string }[] = [
-    { key: 'PENDING',     label: 'Đặt phòng',     color: 'bg-amber-400' },
-    { key: 'CONFIRMED',   label: 'Xác nhận',       color: 'bg-blue-500' },
-    { key: 'CHECKED_IN',  label: 'Nhận phòng',     color: 'bg-green-500' },
-    { key: 'CHECKED_OUT', label: 'Trả phòng',      color: 'bg-slate-400' },
+    { key: 'PENDING',     label: 'Đặt phòng',  color: 'bg-amber-400' },
+    { key: 'CONFIRMED',   label: 'Xác nhận',    color: 'bg-blue-500' },
+    { key: 'CHECKED_IN',  label: 'Nhận phòng',  color: 'bg-green-500' },
+    { key: 'CHECKED_OUT', label: 'Trả phòng',   color: 'bg-slate-400' },
   ];
   const order = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT'];
   const currentIdx = status ? order.indexOf(status) : -1;
-
   return steps.map((step, i) => ({
     label: step.label,
     time: i === 0 ? formatDatetime(booking.createdAt)
@@ -146,9 +145,13 @@ export default function BookingDetailPage() {
   const router = useRouter();
   const id = params.id as string;
 
-  const [booking, setBooking]     = useState<ExtendedBooking | null>(null);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState<string | null>(null);
+  const [booking, setBooking] = useState<ExtendedBooking | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [confirmNote, setConfirmNote] = useState('');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [qrLoaded, setQrLoaded] = useState(false);
 
   const fetchBooking = useCallback(async () => {
     setLoading(true);
@@ -158,14 +161,12 @@ export default function BookingDetailPage() {
       setBooking(data);
     } catch (e: unknown) {
       if (e instanceof Error && e.message === 'UNAUTHORIZED') {
-        setError('Phiên đăng nhập đã hết hạn hoặc bạn không có quyền truy cập. Đang chuyển hướng...');
+        setError('Phiên đăng nhập đã hết hạn. Đang chuyển hướng...');
         if (typeof window !== 'undefined') {
           localStorage.removeItem('admin_access_token');
           localStorage.removeItem('admin_info');
         }
-        setTimeout(() => {
-          router.push('/admin/login');
-        }, 1500);
+        setTimeout(() => router.push('/admin/login'), 1500);
       } else {
         setError(e instanceof Error ? e.message : 'Không thể tải thông tin booking.');
       }
@@ -175,6 +176,36 @@ export default function BookingDetailPage() {
   }, [id, router]);
 
   useEffect(() => { fetchBooking(); }, [fetchBooking]);
+
+  const handleConfirmPayment = async () => {
+    if (!booking) return;
+    setConfirmingPayment(true);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('admin_access_token') : null;
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/bookings/${id}/confirm-payment`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ note: confirmNote || undefined }),
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Xác nhận thanh toán thất bại');
+      }
+      setShowConfirmModal(false);
+      setConfirmNote('');
+      await fetchBooking();
+    } catch (e: any) {
+      alert(e.message || 'Đã xảy ra lỗi');
+    } finally {
+      setConfirmingPayment(false);
+    }
+  };
 
   if (loading) return <DetailSkeleton />;
 
@@ -192,22 +223,21 @@ export default function BookingDetailPage() {
   if (!booking) return null;
 
   const actualStatus = booking.status ?? booking.bookingStatus ?? booking.booking_status ?? 'PENDING';
-
   const timeline = buildTimeline(booking);
-
   const roomNameParts = [booking.roomCategory?.name, booking.room?.roomNumber].filter(Boolean);
   const roomName = roomNameParts.length > 0 ? roomNameParts.join(' - ') : null;
+  const isBankTransfer = booking.paymentMethod === 'BANK_TRANSFER';
+  const isUnpaid = booking.paymentStatus === 'UNPAID';
+  const canConfirmPayment = isBankTransfer && isUnpaid &&
+    actualStatus !== 'CANCELLED' && actualStatus !== 'EXPIRED';
 
   return (
     <>
       <div className="space-y-6">
-        {/* ── Header ── */}
+        {/* Header */}
         <div className="flex flex-wrap items-center gap-4 justify-between">
           <div className="flex items-center gap-3">
-            <Link
-              href="/admin/bookings"
-              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-            >
+            <Link href="/admin/bookings" className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
@@ -222,27 +252,18 @@ export default function BookingDetailPage() {
               <p className="text-xs text-slate-400 mt-0.5">Tạo lúc {formatDatetime(booking.createdAt)}</p>
             </div>
           </div>
-
-          {/* Action buttons */}
-          <BookingActions
-            booking={booking as Booking}
-            status={actualStatus}
-            onSuccess={fetchBooking}
-            size="md"
-          />
+          <BookingActions booking={booking as Booking} status={actualStatus} onSuccess={fetchBooking} size="md" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* ── Left column ── */}
+          {/* Left column */}
           <div className="lg:col-span-2 space-y-5">
-            {/* Customer info */}
             <InfoCard title="Thông tin khách hàng">
               <InfoRow label="Họ tên" value={displayValue(booking.customerName)} />
               <InfoRow label="Email" value={booking.email ? <a href={`mailto:${booking.email}`} className="text-blue-600 hover:underline">{displayValue(booking.email)}</a> : '—'} />
               <InfoRow label="Số điện thoại" value={displayValue(booking.phone)} />
             </InfoCard>
 
-            {/* Room info */}
             <InfoCard title="Thông tin phòng">
               <InfoRow label="Tên phòng" value={displayValue(roomName)} />
               <InfoRow label="Giá / đêm" value={formatCurrency(booking.roomCategory?.basePrice)} />
@@ -251,6 +272,80 @@ export default function BookingDetailPage() {
               <InfoRow label="Số đêm" value={booking.nightCount != null ? `${booking.nightCount} đêm` : '—'} />
               <InfoRow label="Số khách" value={booking.guestCount != null ? `${booking.guestCount} người` : '—'} />
             </InfoCard>
+
+            {/* Bank Transfer Info */}
+            {isBankTransfer && (
+              <InfoCard title="Thông tin chuyển khoản ngân hàng">
+                <div className="space-y-4">
+                  {/* Status banner */}
+                  {isUnpaid ? (
+                    <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                      <svg className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      <span><strong>Chưa xác nhận thanh toán.</strong> Kiểm tra giao dịch ngân hàng rồi bấm xác nhận bên dưới.</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800">
+                      <svg className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span><strong>Đã xác nhận thanh toán</strong>{booking.paidAt ? ` lúc ${formatDatetime(booking.paidAt)}` : ''}.</span>
+                    </div>
+                  )}
+
+                  {booking.bankTransferContent && (
+                    <InfoRow
+                      label="Nội dung CK"
+                      value={
+                        <span className="font-mono font-bold text-slate-900 bg-amber-50 px-2 py-0.5 border border-amber-100 text-sm">
+                          {booking.bankTransferContent}
+                        </span>
+                      }
+                    />
+                  )}
+
+                  {/* QR Image */}
+                  {booking.bankQrUrl && (
+                    <div className="flex flex-col items-center py-4 border-t border-slate-100">
+                      <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-3">Mã QR thanh toán của khách</p>
+                      <div className="relative">
+                        {!qrLoaded && (
+                          <div className="w-48 h-48 bg-slate-50 border border-slate-200 flex items-center justify-center rounded">
+                            <div className="w-6 h-6 rounded-full border-2 border-blue-200 border-t-blue-500 animate-spin"></div>
+                          </div>
+                        )}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={booking.bankQrUrl}
+                          alt="VietQR"
+                          className={`w-48 h-auto border border-slate-200 rounded ${qrLoaded ? 'block' : 'hidden'}`}
+                          onLoad={() => setQrLoaded(true)}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Confirm Payment Button */}
+                  {canConfirmPayment && (
+                    <div className="border-t border-slate-100 pt-4">
+                      <button
+                        onClick={() => setShowConfirmModal(true)}
+                        className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 px-4 rounded-lg text-sm font-semibold transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Xác nhận đã nhận tiền chuyển khoản
+                      </button>
+                      <p className="text-xs text-slate-400 text-center mt-2">
+                        Chỉ bấm sau khi đã kiểm tra giao dịch trong tài khoản ngân hàng
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </InfoCard>
+            )}
 
             {/* Timeline */}
             <InfoCard title="Timeline đặt phòng">
@@ -269,9 +364,7 @@ export default function BookingDetailPage() {
                   timeline.map((event, i) => (
                     <div key={i} className="flex gap-3">
                       <div className="flex flex-col items-center">
-                        <span className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          event.done ? event.color : 'bg-slate-200'
-                        }`}>
+                        <span className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${event.done ? event.color : 'bg-slate-200'}`}>
                           {event.done && (
                             <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
@@ -292,7 +385,6 @@ export default function BookingDetailPage() {
               </div>
             </InfoCard>
 
-            {/* Notes */}
             {(booking.special_requests || booking.notes) && (
               <InfoCard title="Ghi chú">
                 {booking.special_requests && (
@@ -311,15 +403,28 @@ export default function BookingDetailPage() {
             )}
           </div>
 
-          {/* ── Right column ── */}
+          {/* Right column */}
           <div className="space-y-5">
-            {/* Payment summary */}
             <InfoCard title="Thông tin thanh toán">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-slate-500">Trạng thái</span>
                   <PaymentBadge status={booking.paymentStatus!} />
                 </div>
+                <div className="flex items-center justify-between text-xs text-slate-400">
+                  <span>Phương thức</span>
+                  <span className="font-medium text-slate-700">
+                    {booking.paymentMethod === 'BANK_TRANSFER' ? '🏦 Chuyển khoản' :
+                     booking.paymentMethod === 'CASH' ? '💵 Tiền mặt' :
+                     booking.paymentMethod || '—'}
+                  </span>
+                </div>
+                {booking.paidAt && (
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <span>Thanh toán lúc</span>
+                    <span className="font-medium text-emerald-700">{formatDatetime(booking.paidAt)}</span>
+                  </div>
+                )}
                 <div className="border-t border-slate-100 pt-3">
                   <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
                     <span>Giá phòng</span>
@@ -333,7 +438,6 @@ export default function BookingDetailPage() {
               </div>
             </InfoCard>
 
-            {/* Booking meta */}
             <InfoCard title="Thông tin đặt phòng">
               <InfoRow label="Mã booking" value={<span className="font-mono font-bold text-blue-600">#{displayValue(booking.bookingCode)}</span>} />
               <InfoRow label="Tạo lúc" value={formatDatetime(booking.createdAt)} />
@@ -342,6 +446,42 @@ export default function BookingDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Confirm Payment Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h2 className="text-lg font-bold text-slate-900 mb-2">Xác nhận thanh toán chuyển khoản</h2>
+            <p className="text-sm text-slate-500 mb-4">
+              Bạn xác nhận đã nhận được tiền chuyển khoản từ khách?<br />
+              Nội dung: <strong className="text-slate-800 font-mono">{booking?.bankTransferContent}</strong>
+            </p>
+            <textarea
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-blue-400 mb-4"
+              rows={3}
+              placeholder="Ghi chú (tuỳ chọn)..."
+              value={confirmNote}
+              onChange={e => setConfirmNote(e.target.value)}
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowConfirmModal(false); setConfirmNote(''); }}
+                className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                disabled={confirmingPayment}
+              >
+                Huỷ
+              </button>
+              <button
+                onClick={handleConfirmPayment}
+                disabled={confirmingPayment}
+                className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                {confirmingPayment ? 'Đang xử lý...' : 'Xác nhận đã nhận tiền'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

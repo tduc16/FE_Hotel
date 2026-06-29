@@ -5,7 +5,7 @@ import {
   BookingStatus,
 } from '@/types/booking';
 
-const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 export const bookingService = {
   async getBookings(query: BookingQuery = {}): Promise<BookingPaginatedResponse> {

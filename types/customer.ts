@@ -41,6 +41,13 @@ export interface ChangePasswordPayload {
   new_password: string;
 }
 
+export interface ResetPasswordPayload {
+  email: string;
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 // ===== Membership =====
 
 export type MembershipLevel = 'STANDARD' | 'SILVER' | 'GOLD' | 'PLATINUM';

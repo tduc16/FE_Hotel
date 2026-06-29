@@ -52,6 +52,12 @@ function BookingContent() {
   console.log('customer_access_token', typeof window !== 'undefined' ? localStorage.getItem('customer_access_token') : null);
   console.log('auth customer', customer);
 
+  // Tránh hydration mismatch
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // State for room data
   const [roomData, setRoomData] = useState<RoomCategory | null>(null);
   const [isLoadingRoom, setIsLoadingRoom] = useState(true);
@@ -362,9 +368,8 @@ function BookingContent() {
     setFormError(null);
 
     try {
-      let pm = formData.paymentMethod;
-      if (pm === 'PAY_AT_HOTEL') pm = 'CASH';
-      if (pm === 'E_WALLET') pm = 'EWALLET';
+      // Chỉ 2 phương thức hợp lệ: CASH và BANK_TRANSFER
+      const pm = formData.paymentMethod; // Đã là 'CASH' hoặc 'BANK_TRANSFER'
 
       const result = await bookingService.createBooking({
         customer_name: formData.fullName,
@@ -393,9 +398,26 @@ function BookingContent() {
          throw new Error('Invalid booking response');
       }
 
-      router.push(
-        `/booking-success?code=${bookingData.booking_code}`
-      );
+      // Chuyển hướng đến trang thành công với đầy đủ thông tin
+      const successParams = new URLSearchParams({
+        code: bookingData.booking_code,
+        method: bookingData.paymentMethod || pm,
+        amount: String(bookingData.totalAmount || 0),
+      });
+
+      if (bookingData.paymentMethod === 'BANK_TRANSFER' && bookingData.bankQrUrl) {
+        successParams.set('qr', bookingData.bankQrUrl);
+        if (bookingData.bankTransferContent) {
+          successParams.set('content', bookingData.bankTransferContent);
+        }
+        if (bookingData.bankInfo) {
+          successParams.set('bankName', bookingData.bankInfo.bankName || '');
+          successParams.set('accountNumber', bookingData.bankInfo.accountNumber || '');
+          successParams.set('accountName', bookingData.bankInfo.accountName || '');
+        }
+      }
+
+      router.push(`/booking-success?${successParams.toString()}`);
     } catch (err: any) {
       console.error("Booking error:", err);
       setFormError(err.message || 'Đã xảy ra lỗi khi đặt phòng. Vui lòng thử lại.');
@@ -537,7 +559,7 @@ function BookingContent() {
                 <input
                   type="date"
                   name="checkIn"
-                  min={getTodayStr()}
+                  min={mounted ? getTodayStr() : undefined}
                   value={formData.checkIn}
                   onChange={handleChange}
                   className={`w-full bg-[#F8F6F3] border border-stone-200 py-3 px-4 text-sm focus:border-[#C8A97E]/60 focus:ring-0 focus:outline-none transition-colors ${errors.checkIn ? 'border-red-400' : ''}`}
@@ -550,7 +572,7 @@ function BookingContent() {
                 <input
                   type="date"
                   name="checkOut"
-                  min={getMinCheckOut()}
+                  min={mounted ? getMinCheckOut() : undefined}
                   value={formData.checkOut}
                   onChange={handleChange}
                   className={`w-full bg-[#F8F6F3] border border-stone-200 py-3 px-4 text-sm focus:border-[#C8A97E]/60 focus:ring-0 focus:outline-none transition-colors ${errors.checkOut ? 'border-red-400' : ''}`}
@@ -627,16 +649,16 @@ function BookingContent() {
             </div>
 
             <div className="space-y-4">
-              <label className={`flex items-start gap-4 p-5 border cursor-pointer transition-all ${formData.paymentMethod === 'PAY_AT_HOTEL' ? 'border-[#C8A97E] bg-[#C8A97E]/5' : 'border-stone-250 hover:bg-stone-50'}`}>
+              <label className={`flex items-start gap-4 p-5 border cursor-pointer transition-all ${formData.paymentMethod === 'CASH' ? 'border-[#C8A97E] bg-[#C8A97E]/5' : 'border-stone-250 hover:bg-stone-50'}`}>
                 <div className="pt-1">
-                  <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.paymentMethod === 'PAY_AT_HOTEL' ? 'border-[#C8A97E]' : 'border-stone-300'}`}>
-                    {formData.paymentMethod === 'PAY_AT_HOTEL' && <div className="w-2.5 h-2.5 rounded-full bg-[#C8A97E]"></div>}
+                  <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.paymentMethod === 'CASH' ? 'border-[#C8A97E]' : 'border-stone-300'}`}>
+                    {formData.paymentMethod === 'CASH' && <div className="w-2.5 h-2.5 rounded-full bg-[#C8A97E]"></div>}
                   </div>
                 </div>
-                <input type="radio" name="paymentMethod" value="PAY_AT_HOTEL" checked={formData.paymentMethod === 'PAY_AT_HOTEL'} onChange={handleChange} className="sr-only" />
+                <input type="radio" name="paymentMethod" value="CASH" checked={formData.paymentMethod === 'CASH'} onChange={handleChange} className="sr-only" />
                 <div>
                   <div className="font-semibold text-stone-800 text-sm">Thanh toán khi nhận phòng</div>
-                  <div className="text-xs text-stone-500 mt-1">Thanh toán bằng tiền mặt hoặc thẻ tại quầy lễ tân</div>
+                  <div className="text-xs text-stone-500 mt-1">Thanh toán bằng tiền mặt tại quầy lễ tân</div>
                 </div>
               </label>
 
@@ -647,24 +669,14 @@ function BookingContent() {
                   </div>
                 </div>
                 <input type="radio" name="paymentMethod" value="BANK_TRANSFER" checked={formData.paymentMethod === 'BANK_TRANSFER'} onChange={handleChange} className="sr-only" />
-                <div>
+                <div className="flex-1">
                   <div className="font-semibold text-stone-800 text-sm">Chuyển khoản ngân hàng</div>
-                  <div className="text-xs text-stone-500 mt-1">Quét mã QR qua ứng dụng Internet Banking</div>
-                </div>
-              </label>
-
-              <label className={`flex items-start gap-4 p-5 border cursor-pointer transition-all ${formData.paymentMethod === 'E_WALLET' ? 'border-[#C8A97E] bg-[#C8A97E]/5' : 'border-stone-250 hover:bg-stone-50'}`}>
-                <div className="pt-1">
-                  <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.paymentMethod === 'E_WALLET' ? 'border-[#C8A97E]' : 'border-stone-300'}`}>
-                    {formData.paymentMethod === 'E_WALLET' && <div className="w-2.5 h-2.5 rounded-full bg-[#C8A97E]"></div>}
-                  </div>
-                </div>
-                <input type="radio" name="paymentMethod" value="E_WALLET" checked={formData.paymentMethod === 'E_WALLET'} onChange={handleChange} className="sr-only" />
-                <div className="flex-1 flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold text-stone-800 text-sm">Ví điện tử</div>
-                    <div className="text-xs text-stone-500 mt-1">Thanh toán qua Momo, ZaloPay, VNPay</div>
-                  </div>
+                  <div className="text-xs text-stone-500 mt-1">Quét mã QR VietQR qua ứng dụng Internet Banking</div>
+                  {formData.paymentMethod === 'BANK_TRANSFER' && (
+                    <div className="mt-2 text-[11px] text-[#C8A97E] font-medium bg-[#C8A97E]/5 px-3 py-2 border border-[#C8A97E]/20">
+                      📱 Mã QR sẽ được hiển thị sau khi xác nhận đặt phòng
+                    </div>
+                  )}
                 </div>
               </label>
             </div>

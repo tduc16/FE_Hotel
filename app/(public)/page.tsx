@@ -14,7 +14,7 @@ const SERIF = { fontFamily: "var(--font-cormorant), Georgia, serif" };
 // Helper: build image URL for service images
 // ──────────────────────────────────────────────
 const BACKEND_URL =
-  (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api").replace(
+  (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api").replace(
     /\/api$/,
     ""
   );
@@ -56,7 +56,7 @@ async function fetchServices(): Promise<{ data: HotelService[]; error: string | 
 
 async function fetchFeaturedReviews(): Promise<any[]> {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
     const res = await fetch(`${apiUrl}/reviews?featured=true&limit=3`, { cache: 'no-store' });
     if (!res.ok) return [];
     const data = await res.json();
@@ -69,7 +69,7 @@ async function fetchFeaturedReviews(): Promise<any[]> {
 
 async function fetchReviewsSummary(): Promise<any> {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
     const res = await fetch(`${apiUrl}/reviews/summary`, { cache: 'no-store' });
     if (!res.ok) return null;
     const data = await res.json();
