@@ -266,12 +266,33 @@ export default function BookingDetailPage() {
 
             <InfoCard title="Thông tin phòng">
               <InfoRow label="Tên phòng" value={displayValue(roomName)} />
+              <InfoRow label="Số lượng đặt" value={`${booking.roomCount || booking.room_count || 1} phòng`} />
               <InfoRow label="Giá / đêm" value={formatCurrency(booking.roomCategory?.basePrice)} />
               <InfoRow label="Check-in" value={formatDate(booking.checkInDate)} />
               <InfoRow label="Check-out" value={formatDate(booking.checkOutDate)} />
               <InfoRow label="Số đêm" value={booking.nightCount != null ? `${booking.nightCount} đêm` : '—'} />
-              <InfoRow label="Số khách" value={booking.guestCount != null ? `${booking.guestCount} người` : '—'} />
+              <InfoRow label="Số khách" value={`${booking.adultCount || booking.adult_count || 1} người lớn${(booking.childCount || booking.child_count || 0) > 0 ? `, ${booking.childCount || booking.child_count} trẻ em` : ''} (Tổng ${booking.guestCount || booking.guest_count || 1} người)`} />
             </InfoCard>
+
+            {booking.bookingServices && booking.bookingServices.length > 0 && (
+              <InfoCard title="Dịch vụ bổ sung đã chọn">
+                <div className="space-y-2">
+                  {booking.bookingServices.map((bs: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-center py-2 border-b border-slate-100 last:border-0">
+                      <div>
+                        <span className="text-sm font-semibold text-slate-800">{bs.serviceName}</span>
+                      </div>
+                      <span className="text-sm font-bold text-slate-750">{formatCurrency(bs.servicePrice)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between items-center pt-2 font-bold text-slate-900 border-t border-dashed border-slate-200">
+                    <span className="text-xs uppercase text-slate-400">Tổng tiền dịch vụ bổ sung</span>
+                    <span>{formatCurrency(booking.serviceAmount || booking.service_amount || 0)}</span>
+                  </div>
+                </div>
+              </InfoCard>
+            )}
+
 
             {/* Bank Transfer Info */}
             {isBankTransfer && (
@@ -425,16 +446,35 @@ export default function BookingDetailPage() {
                     <span className="font-medium text-emerald-700">{formatDatetime(booking.paidAt)}</span>
                   </div>
                 )}
-                <div className="border-t border-slate-100 pt-3">
-                  <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
-                    <span>Giá phòng</span>
-                    <span>{formatCurrency(booking.roomCategory?.basePrice)} × {booking.nightCount != null ? `${booking.nightCount} đêm` : '—'}</span>
+                <div className="border-t border-slate-100 pt-3 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <span>Tiền phòng tạm tính</span>
+                    <span>
+                      {formatCurrency(
+                        Number(booking.roomCategory?.basePrice || booking.roomPrice) *
+                        Number(booking.nightCount || 0) *
+                        Number(booking.roomCount || 1)
+                      )}
+                    </span>
                   </div>
-                  <div className="flex items-center justify-between font-bold text-slate-900">
-                    <span>Tổng cộng</span>
-                    <span className="text-lg">{formatCurrency(booking.totalAmount)}</span>
+                  {(booking.serviceAmount || booking.service_amount) ? (
+                    <div className="flex items-center justify-between text-xs text-slate-400">
+                      <span>Dịch vụ bổ sung</span>
+                      <span>+{formatCurrency(booking.serviceAmount || booking.service_amount)}</span>
+                    </div>
+                  ) : null}
+                  {(booking.discountAmount || booking.discount_amount) ? (
+                    <div className="flex items-center justify-between text-xs text-emerald-600">
+                      <span>Giảm giá Voucher</span>
+                      <span>-{formatCurrency(booking.discountAmount || booking.discount_amount)}</span>
+                    </div>
+                  ) : null}
+                  <div className="flex items-center justify-between font-bold text-slate-900 border-t border-slate-100 pt-2">
+                    <span>Tổng thanh toán</span>
+                    <span className="text-lg text-blue-600">{formatCurrency(booking.totalAmount)}</span>
                   </div>
                 </div>
+
               </div>
             </InfoCard>
 

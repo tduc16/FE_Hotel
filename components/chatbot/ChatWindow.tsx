@@ -65,6 +65,13 @@ export default function ChatWindow({
     }
   }, [isOpen, hasGreeted, customerName]);
 
+  // Reset chatbot session when user logs in or logs out
+  useEffect(() => {
+    if (hasGreeted) {
+      handleResetChat();
+    }
+  }, [customerToken]);
+
   const sendMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
@@ -95,17 +102,24 @@ export default function ChatWindow({
           chatbotApiService.saveSessionId(response.sessionId);
         }
 
+        // Map ctaButtons từ backend thành format actions của frontend để render
+        const mappedActions = response.ctaButtons?.map(btn => ({
+          label: btn.label,
+          url: btn.action,
+          primary: true
+        })) || response.actions;
+
         const botMsg: ChatMessage = {
           id: uuidv4(),
           role: 'assistant',
-          content: response.reply,
+          content: response.message || response.reply,
           intent: response.intent,
           timestamp: new Date(),
-          actions: response.actions,
+          actions: mappedActions,
         };
 
         setMessages((prev) => [...prev, botMsg]);
-        setLastSuggestions(response.suggestions || []);
+        setLastSuggestions(response.quickActions || response.suggestions || []);
       } catch (err: any) {
         const errorMsg: ChatMessage = {
           id: uuidv4(),
@@ -132,6 +146,29 @@ export default function ChatWindow({
       e.preventDefault();
       sendMessage(input);
     }
+  };
+
+  const handleResetChat = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('chatbot_session_id');
+    }
+    const newSessionId = uuidv4();
+    setSessionId(newSessionId);
+    chatbotApiService.saveSessionId(newSessionId);
+
+    const greeting = customerName
+      ? `Xin chào **${customerName}**! 👋 Em là trợ lý tư vấn của Khách sạn Hoàng Minh. Anh/chị muốn em tư vấn hạng phòng, dịch vụ hay hướng dẫn đặt phòng ạ?`
+      : 'Xin chào Quý khách! 👋 Em là trợ lý tư vấn của Khách sạn Hoàng Minh. Anh/chị muốn em tư vấn hạng phòng, dịch vụ hay hướng dẫn đặt phòng ạ?';
+
+    setMessages([
+      {
+        id: uuidv4(),
+        role: 'assistant',
+        content: greeting,
+        timestamp: new Date(),
+      },
+    ]);
+    setLastSuggestions([]);
   };
 
   const showQuickActions = messages.length <= 1 && !isTyping;
@@ -176,16 +213,29 @@ export default function ChatWindow({
           </div>
         </div>
 
-        <button
-          onClick={onClose}
-          className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:bg-white/10"
-          style={{ color: '#a08060' }}
-        >
-          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
-            close
-          </span>
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleResetChat}
+            className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:bg-white/10"
+            title="Làm mới cuộc trò chuyện"
+            style={{ color: '#a08060' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+              restart_alt
+            </span>
+          </button>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:bg-white/10"
+            style={{ color: '#a08060' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+              close
+            </span>
+          </button>
+        </div>
       </div>
+
 
       {/* Messages Area */}
       <div

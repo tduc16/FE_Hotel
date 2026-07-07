@@ -358,11 +358,28 @@ export default function BookingLookupPage() {
                 <InfoRow label="Điện thoại" value={cPhone} />
                 <InfoRow label="Email" value={cEmail} />
                 <InfoRow label="Loại phòng" value={rName} />
-                <InfoRow label="Số phòng" value={rNumber} />
+                <InfoRow label="Số lượng phòng" value={`${booking ? (booking.roomCount ?? booking.room_count ?? 1) : 1} phòng`} />
+                <InfoRow label="Số phòng được gán" value={rNumber} />
                 <InfoRow label="Nhận phòng" value={formatDate(chIn)} />
                 <InfoRow label="Trả phòng" value={formatDate(chOut)} />
-                <InfoRow label="Số khách" value={`${booking.guestCount ?? booking.guest_count ?? 1} khách`} />
+                <InfoRow label="Số khách" value={`${booking ? (booking.adultCount ?? booking.adult_count ?? 1) : 1} người lớn${(booking ? (booking.childCount ?? booking.child_count ?? 0) : 0) > 0 ? `, ${(booking ? (booking.childCount ?? booking.child_count ?? 0) : 0)} trẻ em` : ''}`} />
+                {booking && booking.bookingServices && booking.bookingServices.length > 0 && (
+                  <div className="flex flex-col py-4.5 border-b border-stone-100 last:border-0 text-left">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A97E] mb-2">
+                      Dịch vụ bổ sung đã chọn
+                    </span>
+                    <div className="space-y-1.5 pl-3">
+                      {booking.bookingServices.map((bs: any, idx: number) => (
+                        <div key={idx} className="flex justify-between items-center text-xs text-stone-700">
+                          <span>• {bs.serviceName}</span>
+                          <span className="font-semibold text-stone-900">{formatCurrency(bs.servicePrice)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
+
 
               {/* Total + Payment Status */}
               <div className="px-8 py-6 border-t border-stone-100 bg-[#F8F6F3]/50">

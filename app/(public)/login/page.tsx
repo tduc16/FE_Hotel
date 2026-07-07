@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Eye, EyeOff, Mail, Lock, X } from 'lucide-react';
 import { customerAuthService } from '@/services/customer-auth.service';
@@ -84,8 +84,10 @@ function ForgotPasswordDialog({ open, onClose }: { open: boolean; onClose: () =>
 }
 
 // ─── Login Page ───────────────────────────────────────────────────────────────
-export default function LoginPage() {
+function LoginFormContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get('redirect');
   const { login } = useCustomerAuth();
 
   const [email, setEmail] = useState('');
@@ -114,7 +116,15 @@ export default function LoginPage() {
       const customer = data?.customer;
       login(customer, data?.access_token);
       toast.success(`Chào mừng, ${customer?.fullName ?? 'bạn'}!`);
-      router.push('/account');
+      
+      if (redirect) {
+        console.log('[LoginRedirect] redirect raw:', redirect);
+        const decodedRedirect = decodeURIComponent(redirect);
+        console.log('[LoginRedirect] redirect decoded:', decodedRedirect);
+        router.push(decodedRedirect);
+      } else {
+        router.push('/account');
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Đăng nhập thất bại');
     } finally {
@@ -272,5 +282,17 @@ export default function LoginPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#F8F6F3] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#C8A97E]/30 border-t-[#C8A97E] rounded-full animate-spin"></div>
+      </div>
+    }>
+      <LoginFormContent />
+    </Suspense>
   );
 }

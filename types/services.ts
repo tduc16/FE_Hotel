@@ -10,6 +10,9 @@ export interface HotelService {
   closeTime: string | null;
   location: string | null;
   isActive: boolean;
+  price?: number;
+  serviceType?: 'INCLUDED' | 'OPTIONAL';
   createdAt: string;
   updatedAt: string;
 }
+

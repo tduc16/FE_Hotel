@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { roomService } from "@/services/room.service";
 import { bookingService } from "@/services/booking.service";
+import { hotelServiceApi } from "@/services/hotel-service.service";
 import { RoomCategory } from "@/types/room";
+
 import { toast } from "react-hot-toast";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 
@@ -20,7 +22,11 @@ interface BookingData {
   notes: string;
   paymentMethod: string;
   agreeTerms: boolean;
+  adults: number;
+  children: number;
+  rooms: number;
 }
+
 
 interface ValidationErrors {
   [key: string]: string;
@@ -45,7 +51,7 @@ function BookingContent() {
   const searchParams = useSearchParams();
   const roomId = searchParams.get('roomId');
 
-  const { customer } = useCustomerAuth();
+  const { customer, isAuthenticated } = useCustomerAuth();
 
   // Temporary debug logs
   console.log('customer_info', typeof window !== 'undefined' ? localStorage.getItem('customer_info') : null);
@@ -57,6 +63,97 @@ function BookingContent() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // State theo dõi trạng thái auth trước đó để phát hiện đăng xuất giữa chừng
+  const [prevAuth, setPrevAuth] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (prevAuth === true && !isAuthenticated) {
+      setAppliedVoucher(null);
+      setVoucherCodeInput("");
+      toast.error("Voucher đã bị gỡ do phiên đăng nhập kết thúc");
+    }
+    setPrevAuth(isAuthenticated);
+  }, [isAuthenticated, prevAuth]);
+
+  // Phục hồi dữ liệu từ sessionStorage nếu có
+  useEffect(() => {
+    const cacheStr = sessionStorage.getItem("booking_form_cache");
+    if (cacheStr) {
+      try {
+        const cache = JSON.parse(cacheStr);
+        if (cache.roomCategoryId === roomId) {
+          setFormData(prev => ({
+            ...prev,
+            checkIn: cache.checkIn || prev.checkIn,
+            checkOut: cache.checkOut || prev.checkOut,
+            adults: cache.adults || prev.adults,
+            children: cache.children || prev.children,
+            rooms: cache.rooms || prev.rooms,
+            notes: cache.notes || prev.notes,
+          }));
+          if (cache.selectedServiceIds) {
+            setSelectedServiceIds(cache.selectedServiceIds);
+          }
+        }
+      } catch (err) {
+        console.error("Lỗi phục hồi form từ cache:", err);
+      } finally {
+        sessionStorage.removeItem("booking_form_cache");
+      }
+    }
+  }, [roomId]);
+
+  // Điền sẵn (pre-fill) dữ liệu từ URL query params (ví dụ từ chatbot qua)
+  useEffect(() => {
+    const urlCheckIn = searchParams.get('checkIn');
+    const urlCheckOut = searchParams.get('checkOut');
+    const urlAdults = searchParams.get('adults');
+    const urlChildren = searchParams.get('children');
+    const urlRooms = searchParams.get('rooms');
+
+    const updateData: Partial<BookingData> = {};
+    if (urlCheckIn) updateData.checkIn = urlCheckIn;
+    if (urlCheckOut) updateData.checkOut = urlCheckOut;
+    if (urlAdults) {
+      const parsed = parseInt(urlAdults, 10);
+      if (!isNaN(parsed)) updateData.adults = parsed;
+    }
+    if (urlChildren) {
+      const parsed = parseInt(urlChildren, 10);
+      if (!isNaN(parsed)) updateData.children = parsed;
+    }
+    if (urlRooms) {
+      const parsed = parseInt(urlRooms, 10);
+      if (!isNaN(parsed)) updateData.rooms = parsed;
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        ...updateData,
+      }));
+    }
+  }, [searchParams]);
+
+  const handleRedirectToLogin = () => {
+    // Lưu các lựa chọn hiện tại vào sessionStorage
+    const bookingFormCache = {
+      checkIn: formData.checkIn,
+      checkOut: formData.checkOut,
+      adults: formData.adults,
+      children: formData.children,
+      rooms: formData.rooms,
+      notes: formData.notes,
+      selectedServiceIds: selectedServiceIds,
+      roomCategoryId: roomId,
+    };
+    sessionStorage.setItem("booking_form_cache", JSON.stringify(bookingFormCache));
+    
+    // Bọc redirectTarget trong encodeURIComponent
+    const redirectTarget = `/booking?roomId=${roomId}`;
+    router.push(`/login?redirect=${encodeURIComponent(redirectTarget)}`);
+  };
 
   // State for room data
   const [roomData, setRoomData] = useState<RoomCategory | null>(null);
@@ -75,7 +172,30 @@ function BookingContent() {
     notes: "",
     paymentMethod: "",
     agreeTerms: false,
+    adults: 1,
+    children: 0,
+    rooms: 1,
   });
+
+  const [optionalServices, setOptionalServices] = useState<any[]>([]);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [isLoadingServices, setIsLoadingServices] = useState(false);
+
+  useEffect(() => {
+    async function loadOptionalServices() {
+      setIsLoadingServices(true);
+      try {
+        const services = await hotelServiceApi.getServices('OPTIONAL');
+        setOptionalServices(services);
+      } catch (err) {
+        console.error("Lỗi khi tải dịch vụ bổ sung:", err);
+      } finally {
+        setIsLoadingServices(false);
+      }
+    }
+    loadOptionalServices();
+  }, []);
+
 
   // Auto-populate customer profile when logged in
   useEffect(() => {
@@ -167,12 +287,17 @@ function BookingContent() {
   // Realtime validation & auto-reset for guests
   useEffect(() => {
     if (roomData && roomData.capacity) {
-      const currentGuests = parseInt(formData.guests);
-      if (isNaN(currentGuests) || currentGuests > roomData.capacity) {
-        setFormData(prev => ({ ...prev, guests: roomData.capacity.toString() }));
+      const totalGuests = formData.adults + formData.children;
+      if (totalGuests > roomData.capacity * formData.rooms) {
+        setErrors(prev => ({
+          ...prev,
+          guests: `Số lượng khách (${totalGuests} người) vượt quá sức chứa tối đa của ${formData.rooms} phòng (${roomData.capacity * formData.rooms} người)`
+        }));
+      } else {
+        setErrors(prev => ({ ...prev, guests: "" }));
       }
     }
-  }, [roomData, formData.guests]);
+  }, [roomData, formData.adults, formData.children, formData.rooms]);
 
   // Check availability on checkIn/checkOut/guests change
   useEffect(() => {
@@ -196,12 +321,13 @@ function BookingContent() {
 
       setIsCheckingAvailability(true);
       try {
-        const guestCount = parseInt(formData.guests, 10);
+        const totalGuests = formData.adults + formData.children;
+        const avgGuests = Math.ceil(totalGuests / formData.rooms);
         const res = await bookingService.checkAvailability({
           categoryId: roomId,
           checkIn: formData.checkIn,
           checkOut: formData.checkOut,
-          guestCount: isNaN(guestCount) ? 1 : guestCount,
+          guestCount: avgGuests,
         });
 
         if (active && res.success && res.data) {
@@ -229,7 +355,8 @@ function BookingContent() {
     return () => {
       active = false;
     };
-  }, [formData.checkIn, formData.checkOut, formData.guests, roomId]);
+  }, [formData.checkIn, formData.checkOut, formData.adults, formData.children, formData.rooms, roomId]);
+
 
   // Helper để lấy ngày hôm nay theo YYYY-MM-DD local
   const getTodayStr = () => {
@@ -258,9 +385,13 @@ function BookingContent() {
     const { name, value, type } = e.target;
     const checked = type === 'checkbox' ? (e.target as HTMLInputElement).checked : undefined;
 
+    const parseValue = (name === 'adults' || name === 'children' || name === 'rooms')
+      ? parseInt(value, 10) || 0
+      : (type === 'checkbox' ? checked : value);
+
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: parseValue
     }));
 
     if (errors[name]) {
@@ -294,6 +425,17 @@ function BookingContent() {
       }
     }
 
+    // Validate capacity
+    const totalGuests = formData.adults + formData.children;
+    if (roomData && totalGuests > roomData.capacity * formData.rooms) {
+      newErrors.guests = `Số lượng khách (${totalGuests} người) vượt quá sức chứa tối đa của ${formData.rooms} phòng (${roomData.capacity * formData.rooms} người)`;
+    }
+
+    // Validate availableRoomCount
+    if (availabilityData && availabilityData.availableRoomCount < formData.rooms) {
+      newErrors.rooms = `Hạng phòng chỉ còn ${availabilityData.availableRoomCount} phòng trống`;
+    }
+
     if (!formData.paymentMethod) {
       newErrors.paymentMethod = "Vui lòng chọn phương thức thanh toán";
     }
@@ -311,10 +453,10 @@ function BookingContent() {
   const [appliedVoucher, setAppliedVoucher] = useState<any | null>(null);
   const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
 
-  // Reset voucher khi số đêm hoặc thông tin khách hàng đổi
+  // Reset voucher khi số đêm, phòng, email hoặc dịch vụ đổi
   useEffect(() => {
     setAppliedVoucher(null);
-  }, [nights, formData.email]);
+  }, [nights, formData.email, formData.rooms, selectedServiceIds]);
 
   const handleApplyVoucher = async () => {
     if (!voucherCodeInput.trim()) {
@@ -329,7 +471,12 @@ function BookingContent() {
     setIsValidatingVoucher(true);
     try {
       const basePrice = roomData.base_price || 0;
-      const totalAmount = nights * basePrice;
+      const roomAmount = basePrice * nights * formData.rooms;
+      const serviceAmount = selectedServiceIds.reduce((sum, sId) => {
+        const s = optionalServices.find(item => item.id === sId);
+        return sum + (s?.price || 0);
+      }, 0);
+      const totalAmount = roomAmount + serviceAmount;
       const guestEmail = formData.email;
       const customerId = customer?.id || undefined;
 
@@ -368,8 +515,8 @@ function BookingContent() {
     setFormError(null);
 
     try {
-      // Chỉ 2 phương thức hợp lệ: CASH và BANK_TRANSFER
-      const pm = formData.paymentMethod; // Đã là 'CASH' hoặc 'BANK_TRANSFER'
+      const pm = formData.paymentMethod;
+      const totalGuests = formData.adults + formData.children;
 
       const result = await bookingService.createBooking({
         customer_name: formData.fullName,
@@ -379,11 +526,16 @@ function BookingContent() {
         room_category_id: roomId,
         check_in_date: formData.checkIn,
         check_out_date: formData.checkOut,
-        guest_count: parseInt(formData.guests),
+        guest_count: totalGuests,
+        adult_count: formData.adults,
+        child_count: formData.children,
+        room_count: formData.rooms,
         payment_method: pm,
         voucherCode: appliedVoucher ? appliedVoucher.code : undefined,
+        selectedServiceIds: selectedServiceIds,
         ...(customer?.id ? { customerId: customer.id } : {}),
       });
+
 
       if (result && result.error) {
         setFormError(result.message);
@@ -457,6 +609,17 @@ function BookingContent() {
 
   const imageUrl = imgError ? null : buildImageUrl(roomData.thumbnail_url);
 
+  const basePrice = roomData.base_price || 0;
+  const roomAmount = basePrice * nights * formData.rooms;
+  const serviceAmount = selectedServiceIds.reduce((sum, sId) => {
+    const s = optionalServices.find(item => item.id === sId);
+    return sum + (s?.price || 0);
+  }, 0);
+  const subtotal = roomAmount + serviceAmount;
+  const discountAmount = appliedVoucher ? appliedVoucher.discountAmount : 0;
+  const totalAmount = subtotal - discountAmount;
+
+
   return (
     <div className="max-w-6xl mx-auto px-6 py-12">
       {/* Breadcrumb */}
@@ -485,6 +648,24 @@ function BookingContent() {
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
         {/* Left Column: Form Info */}
         <div className="lg:col-span-2 space-y-8">
+          
+          {!isAuthenticated && (
+            <div className="bg-[#F8F6F3] border border-[#C8A97E]/30 p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-1">
+                <h4 className="text-sm font-semibold text-[#C8A97E] uppercase tracking-wider" style={SERIF}>Đăng nhập để sử dụng Voucher</h4>
+                <p className="text-xs text-stone-500 font-light leading-relaxed">
+                  Quý khách cần đăng nhập tài khoản thành viên để có thể áp dụng các mã giảm giá đặc quyền cho đơn đặt phòng này.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleRedirectToLogin}
+                className="bg-[#C8A97E] hover:bg-[#b5956a] text-white px-5 py-2.5 text-xs font-semibold uppercase tracking-widest transition-all shrink-0"
+              >
+                Đăng nhập ngay
+              </button>
+            </div>
+          )}
           
           {/* Personal Info Card */}
           <div className="bg-white border border-stone-100 p-8 shadow-sm">
@@ -580,27 +761,54 @@ function BookingContent() {
                 {errors.checkOut && <p className="text-red-500 text-xs font-medium mt-1">{errors.checkOut}</p>}
               </div>
 
-              <div className="space-y-2 md:col-span-2">
-                <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A97E]">
-                  Số lượng khách * {roomData ? `(Tối đa ${roomData.capacity} khách)` : ''}
-                </label>
-                <select
-                  name="guests"
-                  value={formData.guests}
-                  onChange={handleChange}
-                  disabled={!roomData}
-                  className="w-full bg-[#F8F6F3] border border-stone-200 py-3 px-4 text-sm focus:border-[#C8A97E]/60 focus:ring-0 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {!roomData && (
-                    <option value={formData.guests}>{formData.guests} Khách</option>
-                  )}
-                  {roomData && Array.from({ length: roomData.capacity }, (_, i) => i + 1).map(num => (
-                    <option key={num} value={num.toString()}>
-                      {num} Khách
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-3 gap-4 md:col-span-2">
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A97E]">Người lớn *</label>
+                  <select
+                    name="adults"
+                    value={formData.adults}
+                    onChange={handleChange}
+                    className="w-full bg-[#F8F6F3] border border-stone-200 py-3 px-4 text-sm focus:border-[#C8A97E]/60 focus:ring-0 focus:outline-none transition-colors"
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20].map(num => (
+                      <option key={num} value={num}>{num} Người lớn</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A97E]">Trẻ em</label>
+                  <select
+                    name="children"
+                    value={formData.children}
+                    onChange={handleChange}
+                    className="w-full bg-[#F8F6F3] border border-stone-200 py-3 px-4 text-sm focus:border-[#C8A97E]/60 focus:ring-0 focus:outline-none transition-colors"
+                  >
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                      <option key={num} value={num}>{num} Trẻ em</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A97E]">Số phòng *</label>
+                  <select
+                    name="rooms"
+                    value={formData.rooms}
+                    onChange={handleChange}
+                    className="w-full bg-[#F8F6F3] border border-stone-200 py-3 px-4 text-sm focus:border-[#C8A97E]/60 focus:ring-0 focus:outline-none transition-colors"
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                      <option key={num} value={num}>{num} Phòng</option>
+                    ))}
+                  </select>
+                </div>
+                {(errors.guests || errors.rooms) && (
+                  <div className="col-span-3">
+                    {errors.guests && <p className="text-red-500 text-xs font-medium mt-1">{errors.guests}</p>}
+                    {errors.rooms && <p className="text-red-500 text-xs font-medium mt-1">{errors.rooms}</p>}
+                  </div>
+                )}
               </div>
+
 
               <div className="space-y-2 md:col-span-2">
                 <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A97E]">Yêu cầu thêm (Tùy chọn)</label>
@@ -641,7 +849,104 @@ function BookingContent() {
             </div>
           </div>
 
+          {/* Services Selection Card */}
+          <div className="bg-white border border-stone-100 p-8 shadow-sm">
+            <div className="flex items-center gap-3 mb-8 pb-4 border-b border-stone-100">
+              <span className="material-symbols-outlined text-[#C8A97E] text-xl">room_service</span>
+              <h2 className="text-lg font-light text-stone-900 uppercase tracking-widest">Dịch vụ Khách sạn</h2>
+            </div>
+
+            {/* Dịch vụ đi kèm */}
+            <div className="mb-8">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-[#C8A97E] mb-4">Dịch vụ đi kèm hạng phòng (Miễn phí)</h3>
+              {roomData?.services && roomData.services.filter(s => s.serviceType === 'INCLUDED').length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {roomData.services.filter(s => s.serviceType === 'INCLUDED').map(s => (
+                    <div key={s.id} className="flex items-start gap-3 p-3 bg-stone-50 border border-stone-150/50">
+                      <span className="material-symbols-outlined text-emerald-600 text-lg">check_circle</span>
+                      <div>
+                        <h4 className="text-sm font-medium text-stone-850">{s.name}</h4>
+                        {s.shortDescription && <p className="text-xs text-stone-500 mt-0.5">{s.shortDescription}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-stone-500 italic bg-stone-50 p-4 border border-dashed border-stone-200">
+                  Hạng phòng này không có dịch vụ đi kèm đặc biệt. Các dịch vụ dọn phòng và tiện ích cơ bản vẫn được phục vụ theo tiêu chuẩn khách sạn.
+                </p>
+              )}
+            </div>
+
+            {/* Dịch vụ bổ sung */}
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-[#C8A97E] mb-4">Chọn thêm dịch vụ bổ sung</h3>
+              {isLoadingServices ? (
+                <div className="flex items-center gap-2 text-sm text-stone-500 py-4">
+                  <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                  Đang tải danh sách dịch vụ bổ sung...
+                </div>
+              ) : optionalServices.length > 0 ? (
+                <div className="space-y-3">
+                  {optionalServices.map(s => {
+                    const isSelected = selectedServiceIds.includes(s.id);
+                    return (
+                      <div
+                        key={s.id}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedServiceIds(prev => prev.filter(id => id !== s.id));
+                          } else {
+                            setSelectedServiceIds(prev => [...prev, s.id]);
+                          }
+                        }}
+                        className={`flex items-start gap-4 p-4 border cursor-pointer transition-all ${isSelected ? 'border-[#C8A97E] bg-[#C8A97E]/5' : 'border-stone-200 hover:bg-stone-50'}`}
+                      >
+                        <div className="mt-0.5">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            readOnly
+                            className="h-4 w-4 border-stone-300 text-[#C8A97E] focus:ring-[#C8A97E]"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <h4 className="text-sm font-semibold text-stone-850">{s.name}</h4>
+                            <span className="text-sm font-bold text-[#C8A97E] shrink-0">
+                              +{s.price ? s.price.toLocaleString('vi-VN') : 0} VND
+                            </span>
+                          </div>
+                          {s.shortDescription && <p className="text-xs text-stone-500 mt-1">{s.shortDescription}</p>}
+                          {(s.openTime || s.location) && (
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[10px] text-stone-400">
+                              {s.location && (
+                                <span className="flex items-center gap-1">
+                                  <span className="material-symbols-outlined text-[12px]">location_on</span>
+                                  {s.location}
+                                </span>
+                              )}
+                              {s.openTime && (
+                                <span className="flex items-center gap-1">
+                                  <span className="material-symbols-outlined text-[12px]">schedule</span>
+                                  {s.openTime} - {s.closeTime || '22:00'}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-stone-500 italic py-4">Hiện tại không có dịch vụ bổ sung nào khả dụng.</p>
+              )}
+            </div>
+          </div>
+
           {/* Payment Method Card */}
+
           <div className="bg-white border border-stone-100 p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-8 pb-4 border-b border-stone-100">
               <span className="material-symbols-outlined text-[#C8A97E] text-xl">payments</span>
@@ -728,12 +1033,16 @@ function BookingContent() {
 
               <div className="border-t border-b border-stone-100 py-4 space-y-3">
                 <div className="flex justify-between items-center text-xs uppercase tracking-wider">
-                  <span className="text-stone-400">Đơn giá</span>
+                  <span className="text-stone-400">Đơn giá phòng</span>
                   <span className="font-semibold text-stone-800">{formatCurrency(roomData.base_price)}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs uppercase tracking-wider">
-                  <span className="text-stone-400">Số đêm</span>
+                  <span className="text-stone-400">Thời gian lưu trú</span>
                   <span className="font-semibold text-stone-800">{nights} đêm</span>
+                </div>
+                <div className="flex justify-between items-center text-xs uppercase tracking-wider">
+                  <span className="text-stone-400">Số lượng phòng</span>
+                  <span className="font-semibold text-stone-800">{formData.rooms} phòng</span>
                 </div>
                 <div className="flex justify-between items-center text-xs uppercase tracking-wider">
                   <span className="text-stone-400">Thuế phí</span>
@@ -741,22 +1050,42 @@ function BookingContent() {
                 </div>
               </div>
 
+              {/* Selected Services Detail */}
+              {selectedServiceIds.length > 0 && (
+                <div className="border-t border-stone-100 pt-4 space-y-2">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A97E]">Dịch vụ bổ sung</div>
+                  <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                    {selectedServiceIds.map(sId => {
+                      const s = optionalServices.find(item => item.id === sId);
+                      if (!s) return null;
+                      return (
+                        <div key={sId} className="flex justify-between items-center text-xs">
+                          <span className="text-stone-500 line-clamp-1 pr-2">{s.name}</span>
+                          <span className="font-medium text-stone-800">+{formatCurrency(s.price || 0)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Voucher Section */}
               <div className="border-t border-stone-100 pt-4 space-y-2.5">
                 <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A97E]">Mã khuyến mãi</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="NHẬP MÃ GIẢM GIÁ"
+                    placeholder={isAuthenticated ? "NHẬP MÃ GIẢM GIÁ" : "ĐĂNG NHẬP ĐỂ DÙNG VOUCHER"}
                     value={voucherCodeInput}
                     onChange={(e) => setVoucherCodeInput(e.target.value)}
-                    className="flex-1 bg-[#F8F6F3] border border-stone-200 py-2 px-3 text-xs focus:border-[#C8A97E]/60 focus:ring-0 focus:outline-none uppercase font-bold tracking-wider"
+                    disabled={!isAuthenticated}
+                    className="flex-1 bg-[#F8F6F3] border border-stone-200 py-2 px-3 text-xs focus:border-[#C8A97E]/60 focus:ring-0 focus:outline-none uppercase font-bold tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   <button
                     type="button"
                     onClick={handleApplyVoucher}
-                    disabled={isValidatingVoucher || !voucherCodeInput.trim() || nights === 0}
-                    className="bg-[#1A1A1A] hover:bg-[#333] text-white px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all disabled:opacity-50"
+                    disabled={!isAuthenticated || isValidatingVoucher || !voucherCodeInput.trim() || nights === 0}
+                    className="bg-[#1A1A1A] hover:bg-[#333] text-white px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isValidatingVoucher ? "..." : "Áp dụng"}
                   </button>
@@ -778,27 +1107,30 @@ function BookingContent() {
                 )}
               </div>
 
-              {appliedVoucher ? (
-                <div className="border-t border-stone-100 pt-4 space-y-3">
-                  <div className="flex justify-between items-center text-xs uppercase tracking-wider">
-                    <span className="text-stone-400">Tạm tính</span>
-                    <span className="font-semibold text-stone-800">{formatCurrency(nights * roomData.base_price)}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs uppercase tracking-wider">
-                    <span className="text-stone-400">Giảm giá</span>
-                    <span className="font-bold text-emerald-600">-{formatCurrency(appliedVoucher.discountAmount)}</span>
-                  </div>
-                  <div className="flex justify-between items-end pb-2 border-t border-stone-50 pt-3">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-400">Tổng thanh toán</span>
-                    <span className="text-2xl font-semibold text-[#C8A97E]">{formatCurrency(appliedVoucher.finalAmount)}</span>
-                  </div>
+              {/* Billing breakdown */}
+              <div className="border-t border-stone-100 pt-4 space-y-3">
+                <div className="flex justify-between items-center text-xs uppercase tracking-wider">
+                  <span className="text-stone-400">Tiền phòng tạm tính</span>
+                  <span className="font-semibold text-stone-800">{formatCurrency(roomAmount)}</span>
                 </div>
-              ) : (
-                <div className="flex justify-between items-end pb-2 border-t border-stone-100 pt-4">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-400">Tổng tiền</span>
-                  <span className="text-2xl font-semibold text-[#C8A97E]">{formatCurrency(nights * roomData.base_price)}</span>
+                {serviceAmount > 0 && (
+                  <div className="flex justify-between items-center text-xs uppercase tracking-wider">
+                    <span className="text-stone-400">Tiền dịch vụ bổ sung</span>
+                    <span className="font-semibold text-stone-800">+{formatCurrency(serviceAmount)}</span>
+                  </div>
+                )}
+                {discountAmount > 0 && (
+                  <div className="flex justify-between items-center text-xs uppercase tracking-wider">
+                    <span className="text-stone-400">Giảm giá Voucher</span>
+                    <span className="font-bold text-emerald-600">-{formatCurrency(discountAmount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-end pb-2 border-t border-stone-50 pt-3">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-400">Tổng thanh toán</span>
+                  <span className="text-2xl font-semibold text-[#C8A97E]">{formatCurrency(totalAmount)}</span>
                 </div>
-              )}
+              </div>
+
 
               <div className="pt-2 border-t border-stone-50">
                 <label className="flex items-start gap-3 cursor-pointer p-1">

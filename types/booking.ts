@@ -90,7 +90,20 @@ export interface Booking {
   createdAt?: string | null;
   updatedAt?: string | null;
   histories?: BookingHistory[];
+  roomCount?: number;
+  room_count?: number;
+  adultCount?: number;
+  adult_count?: number;
+  childCount?: number;
+  child_count?: number;
+  serviceAmount?: number;
+  service_amount?: number;
+  bookingServices?: any[];
+  discountAmount?: number | null;
+  discount_amount?: number | null;
 }
+
+
 
 export interface BookingQuery {
   page?: number;

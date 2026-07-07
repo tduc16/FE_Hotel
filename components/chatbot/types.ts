@@ -30,10 +30,14 @@ export interface ChatMessage {
 export interface ChatbotResponse {
   success: boolean;
   reply: string;
+  message: string;
   intent: ChatIntent;
   suggestions: string[];
+  quickActions: string[];
   sessionId: string;
   actions?: ChatAction[];
+  ctaButtons?: { label: string; action: string }[];
+  bookingContext?: Record<string, any>;
 }
 
 export interface QuickAction {
@@ -43,8 +47,8 @@ export interface QuickAction {
 }
 
 export const QUICK_ACTIONS: QuickAction[] = [
-  { icon: '✨', label: 'Tư vấn phòng phù hợp', message: 'Tôi muốn tư vấn phòng phù hợp' },
-  { icon: '🏨', label: 'Kiểm tra phòng trống', message: 'Tôi muốn kiểm tra phòng trống' },
+  { icon: '✨', label: 'Tư vấn phòng phù hợp', message: 'Tôi muốn được tư vấn hạng phòng phù hợp với nhu cầu của mình' },
+  { icon: '🏨', label: 'Hướng dẫn kiểm tra phòng', message: 'Tôi muốn biết cách kiểm tra phòng và đặt phòng trên website' },
   { icon: '💰', label: 'Xem giá phòng', message: 'Giá các loại phòng là bao nhiêu?' },
   { icon: '🎁', label: 'Dịch vụ khách sạn', message: 'Khách sạn có những dịch vụ gì?' },
   { icon: '📋', label: 'Tra cứu booking', message: 'Tôi muốn tra cứu booking của mình' },

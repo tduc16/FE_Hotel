@@ -34,6 +34,8 @@ const mapServiceFields = (item: any): HotelService => {
     closeTime: item.closeTime ?? item.close_time ?? null,
     location: item.location ?? null,
     isActive: item.isActive ?? item.is_active ?? false,
+    price: item.price ? Number(item.price) : 0,
+    serviceType: item.serviceType ?? item.service_type ?? 'OPTIONAL',
     createdAt: item.createdAt ?? item.created_at ?? '',
     updatedAt: item.updatedAt ?? item.updated_at ?? '',
   };
@@ -49,8 +51,9 @@ export const hotelServiceApi = {
   // PUBLIC APIs
   // ==========================================
 
-  async getServices(): Promise<HotelService[]> {
-    const url = getCleanUrl('/services');
+  async getServices(type?: 'INCLUDED' | 'OPTIONAL'): Promise<HotelService[]> {
+    const query = type ? `?type=${type}` : '';
+    const url = getCleanUrl(`/hotel-services${query}`);
     try {
       const res = await fetch(url, { cache: 'no-store' });
 
@@ -72,7 +75,7 @@ export const hotelServiceApi = {
   },
 
   async getServiceBySlug(slug: string): Promise<HotelService> {
-    const url = getCleanUrl(`/services/${slug}`);
+    const url = getCleanUrl(`/hotel-services/${slug}`);
     try {
       const res = await fetch(url, { cache: 'no-store' });
 
@@ -110,7 +113,7 @@ export const hotelServiceApi = {
     if (params.page !== undefined) query.append('page', String(params.page));
     if (params.limit !== undefined) query.append('limit', String(params.limit));
 
-    const url = getCleanUrl(`/admin/services?${query.toString()}`);
+    const url = getCleanUrl(`/admin/hotel-services?${query.toString()}`);
     const res = await fetch(url, {
       headers: getAuthHeaders(),
       cache: 'no-store',
@@ -134,7 +137,7 @@ export const hotelServiceApi = {
   },
 
   async getAdminServiceById(id: string): Promise<HotelService> {
-    const url = getCleanUrl(`/admin/services/${id}`);
+    const url = getCleanUrl(`/admin/hotel-services/${id}`);
     const res = await fetch(url, {
       headers: getAuthHeaders(),
       cache: 'no-store',
@@ -153,7 +156,7 @@ export const hotelServiceApi = {
   },
 
   async createService(data: Partial<HotelService>): Promise<HotelService> {
-    const url = getCleanUrl('/admin/services');
+    const url = getCleanUrl('/admin/hotel-services');
     const res = await fetch(url, {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -173,7 +176,7 @@ export const hotelServiceApi = {
   },
 
   async updateService(id: string, data: Partial<HotelService>): Promise<HotelService> {
-    const url = getCleanUrl(`/admin/services/${id}`);
+    const url = getCleanUrl(`/admin/hotel-services/${id}`);
     const res = await fetch(url, {
       method: 'PUT',
       headers: getAuthHeaders(),
@@ -193,7 +196,7 @@ export const hotelServiceApi = {
   },
 
   async deleteService(id: string): Promise<HotelService> {
-    const url = getCleanUrl(`/admin/services/${id}`);
+    const url = getCleanUrl(`/admin/hotel-services/${id}`);
     const res = await fetch(url, {
       method: 'DELETE',
       headers: getAuthHeaders(),
@@ -210,5 +213,6 @@ export const hotelServiceApi = {
 
     return json.data;
   },
+
 };
 export default hotelServiceApi;

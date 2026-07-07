@@ -37,12 +37,12 @@ export const chatbotApiService = {
 
   getSessionId(): string | null {
     if (typeof window === 'undefined') return null;
-    return localStorage.getItem('chatbot_session_id');
+    return sessionStorage.getItem('chatbot_session_id');
   },
 
   saveSessionId(sessionId: string): void {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('chatbot_session_id', sessionId);
+      sessionStorage.setItem('chatbot_session_id', sessionId);
     }
   },
 };
